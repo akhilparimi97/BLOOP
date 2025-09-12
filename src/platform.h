@@ -17,6 +17,9 @@ namespace Platform {
   unsigned long Millis();
   void          Delay(unsigned ms);
 
+  // >>> Speed scaling (web uses >1.0 to slow gameplay to retro vibe)
+  float         SpeedScale();   // e.g., 1.8 on web, 1.0 on Arduino
+
   // Random
   int           RandomInt(int min_inclusive, int max_exclusive);
 
