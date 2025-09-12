@@ -2,9 +2,9 @@ name: Build and Deploy
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, integration ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, integration ]
 
 # IMPORTANT: Grant write permissions to GitHub Actions
 permissions:
