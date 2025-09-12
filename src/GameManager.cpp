@@ -1,305 +1,214 @@
 #include "GameManager.h"
-#include "SnakeGame.h"
-#include "Pong.h"
+#include "platform.h"
+#include <algorithm>
+#include <cstring>
 
-#ifndef __EMSCRIPTEN__
-#include <Wire.h>
-#include <EEPROM.h>
-#include "esp_sleep.h"
-#endif
+using namespace Platform;
 
-// Global display
-#ifndef __EMSCRIPTEN__
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-#else
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, nullptr, -1);
-#endif
+static int   gHigh[static_cast<int>(GameID::COUNT)] = {0,0};
+static bool  gJustBooted = true;
 
-int highScores[NUM_GAMES];
-bool justWoke = false;
+static enum class SysState { BOOT, MENU, IN_GAME } gState = SysState::BOOT;
+static unsigned long gBootStart = 0;
 
-// Static variables
-static enum SystemState { STATE_LOCKED, STATE_MENU } currentState = STATE_LOCKED;
-static uint8_t menuIndex = 0;
-static String menuItems[] = {"1.Snake", "2.Pong", "3.Sleep"};
-static const int menuCount = sizeof(menuItems) / sizeof(menuItems[0]);
-static unsigned long lastPressA = 0;
-static unsigned long lastPressB = 0;
+static int      gMenuIndex = 0;
+static const char* gMenuItems[] = { "1.Snake", "2.Pong", "3.Sleep" };
+static constexpr int gMenuCount = 3;
 
+static GameID        gActiveGame = GameID::SNAKE;
+static bool          gGameInited = false;
+static int           gCurrentScore = 0;
+static bool          gExitReq = false;
+static bool          gGameOver = false;
 
-int highScores[NUM_GAMES];
-bool justWoke = false;
+static unsigned long lastDebounceA = 0, lastDebounceB = 0;
+static constexpr unsigned DEBOUNCE_MS = 200;
+static constexpr unsigned EXIT_HOLD_MS = 1500;
 
-
-// Static variables
-static enum SystemState { STATE_LOCKED, STATE_MENU } currentState = STATE_LOCKED;
-static uint8_t menuIndex = 0;
-static String menuItems[] = {"1.Snake", "2.Pong", "3.Sleep"};
-static const int menuCount = sizeof(menuItems) / sizeof(menuItems[0]);
-static unsigned long lastPressA = 0;
-static unsigned long lastPressB = 0;
-
-// ============ INPUT HANDLING ============
-
-bool buttonPressed(int pin) {
-    unsigned long now = millis();
-    unsigned long *lastPress = (pin == BUTTON_A) ? &lastPressA : &lastPressB;
-    
-    if (digitalRead(pin) == LOW && now - *lastPress > DEBOUNCE_DELAY) {
-        *lastPress = now;
-        return true;
-    }
-    return false;
-}
-
+// ---------- Input ----------
 InputState getInputState() {
-    InputState state = {0};
-    state.buttonA = digitalRead(BUTTON_A) == LOW;
-    state.buttonB = digitalRead(BUTTON_B) == LOW;
-    state.bothPressed = state.buttonA && state.buttonB;
-    return state;
+  InputState s;
+  s.buttonA = ButtonPressed(Button::BTN_A);
+  s.buttonB = ButtonPressed(Button::BTN_B);
+  s.both    = s.buttonA && s.buttonB;
+  return s;
 }
 
-void waitForButtonRelease() {
-    while (digitalRead(BUTTON_A) == LOW || digitalRead(BUTTON_B) == LOW) {
-        delay(10);
-    }
+static bool buttonPressedEdge(bool now, unsigned long& lastTs) {
+  unsigned long t = Millis();
+  if (now && (t - lastTs) > DEBOUNCE_MS) { lastTs = t; return true; }
+  return false;
 }
 
-// ============ UI FUNCTIONS ============
-
-void showBootAnimation() {
-    display.clearDisplay();
-    display.setTextSize(2);
-    display.setTextColor(SSD1306_WHITE);
-
-    for (int i = 0; i < SCREEN_WIDTH; i += 4) {
-        display.clearDisplay();
-        display.setCursor(i, 25);
-        display.println("BLOOP");
-        display.display();
-        delay(20);
-    }
-    delay(500);
-}
-
-void showLockedScreen() {
-    display.clearDisplay();
-    display.setTextSize(2);
-    display.setTextColor(SSD1306_WHITE);
-    display.setCursor(30, 25);
-    display.println("BLOOP");
-    display.display();
-}
-
+// ---------- UI ----------
 void drawStatusBar(const char* gameName, int currentScore, int highScore) {
-    display.fillRect(0, 0, SCREEN_WIDTH, STATUS_BAR_HEIGHT, SSD1306_BLACK);
-    display.setTextSize(1);
-    display.setTextColor(SSD1306_WHITE);
+  FillRect(0, 0, SCREEN_WIDTH, STATUS_BAR_HEIGHT, false);
+  DrawText(0, 2, "HSC:", 1, true);     // high score
+  char buf[16];
+  std::snprintf(buf, sizeof(buf), "%d", highScore);
+  DrawText(24, 2, buf, 1, true);
 
-    display.setCursor(0, 2);
-    display.print("HSC:");
-    display.print(highScore);
+  DrawText(50, 2, "Scr:", 1, true);
+  std::snprintf(buf, sizeof(buf), "%d", currentScore);
+  DrawText(75, 2, buf, 1, true);
 
-    display.setCursor(50, 2);
-    display.print("Scr:");
-    display.print(currentScore);
-
-    display.setCursor(110, 2);
-    display.print("BAT");
+  DrawText(110, 2, "BAT", 1, true);
 }
 
 void drawStatusBarMenu() {
-    display.fillRect(0, 0, SCREEN_WIDTH, STATUS_BAR_HEIGHT, SSD1306_BLACK);
-    display.setTextSize(1);
-    display.setTextColor(SSD1306_WHITE);
-
-    display.setCursor(48, 2);
-    display.print("BLOOP");
-
-    display.setCursor(110, 2);
-    display.print("BAT");
-    display.display();
+  FillRect(0, 0, SCREEN_WIDTH, STATUS_BAR_HEIGHT, false);
+  DrawText(48, 2, "BLOOP", 1, true);
+  DrawText(110, 2, "BAT",  1, true);
+  Present();
 }
 
 void showExitHoldBar(float progress) {
-    int barWidth = SCREEN_WIDTH * progress;
-    display.fillRect(0, SCREEN_HEIGHT - 2, SCREEN_WIDTH, 2, SSD1306_BLACK);
-    display.drawLine(0, SCREEN_HEIGHT - 1, barWidth, SCREEN_HEIGHT - 1, SSD1306_WHITE);
-    display.display();
+  if (progress < 0) progress = 0;
+  if (progress > 1) progress = 1;
+  int w = static_cast<int>(SCREEN_WIDTH * progress);
+  FillRect(0, SCREEN_HEIGHT - 2, SCREEN_WIDTH, 2, false);
+  DrawLine(0, SCREEN_HEIGHT - 1, w, SCREEN_HEIGHT - 1, true);
+  Present();
 }
 
 void clearPlayfield() {
-    display.fillRect(0, STATUS_BAR_HEIGHT, SCREEN_WIDTH, PLAYFIELD_HEIGHT, SSD1306_BLACK);
+  FillRect(0, STATUS_BAR_HEIGHT, SCREEN_WIDTH, PLAYFIELD_HEIGHT, false);
 }
 
 void showGameOver(const char* gameName, int score, int highScore) {
-    clearPlayfield();
-    drawStatusBar(gameName, score, highScore);
-    
-    display.setTextSize(1);
-    display.setTextColor(SSD1306_WHITE);
-    display.setCursor(30, STATUS_BAR_HEIGHT + 5);
-    display.println("Game Over");
-    display.setCursor(20, STATUS_BAR_HEIGHT + 20);
-    display.print("Score: ");
-    display.println(score);
-    display.setCursor(20, STATUS_BAR_HEIGHT + 35);
-    display.print("HighScore: ");
-    display.println(highScore);
-    display.display();
-    delay(1500);
+  clearPlayfield();
+  drawStatusBar(gameName, score, highScore);
+  DrawText(30, STATUS_BAR_HEIGHT + 5,  "Game Over", 1, true);
+  char buf[32];
+  std::snprintf(buf, sizeof(buf), "Score: %d", score);
+  DrawText(20, STATUS_BAR_HEIGHT + 20, buf, 1, true);
+  std::snprintf(buf, sizeof(buf), "HighScore: %d", highScore);
+  DrawText(20, STATUS_BAR_HEIGHT + 35, buf, 1, true);
+  Present();
 }
 
 void showGetReady(const char* gameName, const char* instructions) {
-    clearPlayfield();
-    drawStatusBar(gameName, 0, (gameName == "SNAKE") ? highScores[GAME_SNAKE] : highScores[GAME_PONG]);
-    
-    display.setTextSize(1);
-    display.setTextColor(SSD1306_WHITE);
-    
-    // Main "Get Ready" text
-    display.setCursor(35, STATUS_BAR_HEIGHT + 15);
-    display.println("Get Ready...");
-    
-    // Optional instructions
-    if (instructions != nullptr) {
-        display.setCursor(15, STATUS_BAR_HEIGHT + 30);
-        display.println(instructions);
-    }
-    
-    display.display();
-    delay(2000);
-    clearPlayfield();
-    display.display();
+  clearPlayfield();
+  drawStatusBar(gameName, 0, (gameName && std::strcmp(gameName,"SNAKE")==0) ? getHighScore(GameID::SNAKE) : getHighScore(GameID::PONG));
+  DrawText(35, STATUS_BAR_HEIGHT + 15, "Get Ready...", 1, true);
+  if (instructions) DrawText(15, STATUS_BAR_HEIGHT + 30, instructions, 1, true);
+  Present();
 }
 
-// ============ MENU SYSTEM ============
-
-void showMenu() {
-    display.clearDisplay();
-    drawStatusBarMenu();
-
-    display.setTextSize(1);
-    display.setTextColor(SSD1306_WHITE);
-
-    for (int i = 0; i < menuCount; i++) {
-        display.setCursor(0, STATUS_BAR_HEIGHT + 5 + i * 10);
-        display.print((i == menuIndex) ? "> " : "  ");
-        display.println(menuItems[i]);
-    }
-    display.display();
+// ---------- High scores ----------
+int getHighScore(GameID id) {
+  return gHigh[static_cast<int>(id)];
 }
 
-// ============ SLEEP MODE ============
-
-void sleepMode() {
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(SSD1306_WHITE);
-    display.setCursor(20, 25);
-    display.println("Sleeping...");
-    display.display();
-    delay(500);
-
-    display.ssd1306_command(SSD1306_DISPLAYOFF);
-
-    gpio_wakeup_enable((gpio_num_t)BUTTON_A, GPIO_INTR_LOW_LEVEL);
-    gpio_wakeup_enable((gpio_num_t)BUTTON_B, GPIO_INTR_LOW_LEVEL);
-    esp_sleep_enable_gpio_wakeup();
-
-    esp_light_sleep_start();
-
-    // Wake up sequence
-    display.ssd1306_command(SSD1306_DISPLAYON);
-    justWoke = true;
-    waitForButtonRelease();
-
-    showBootAnimation();
-    menuIndex = 0;
-    showMenu();
+void considerHighScore(GameID id, int score) {
+  gHigh[static_cast<int>(id)] = std::max(gHigh[static_cast<int>(id)], score);
 }
 
-// ============ HIGH SCORE MANAGEMENT ============
-
-void saveHighScore(GameID gameId, int score) {
-    if (score > highScores[gameId]) {
-        highScores[gameId] = score;
-        EEPROM.put(0, highScores);  // Always save entire array at offset 0
-        EEPROM.commit();
-    }
+// ---------- Menu drawing ----------
+static void showMenu() {
+  ClearDisplay();
+  drawStatusBarMenu();
+  for (int i = 0; i < gMenuCount; ++i) {
+    int y = STATUS_BAR_HEIGHT + 5 + i * 10;
+    DrawText(0, y, (i == gMenuIndex) ? "> " : "  ", 1, true);
+    DrawText(12, y, gMenuItems[i], 1, true);
+  }
+  Present();
 }
 
-void loadHighScores() {
-    EEPROM.get(0, highScores);
-    // Sanity check
-    for (int i = 0; i < NUM_GAMES; i++) {
-        if (highScores[i] < 0 || highScores[i] > 9999) {
-            highScores[i] = 0;
-        }
-    }
-    EEPROM.put(0, highScores);
-    EEPROM.commit();
+// ---------- Boot anim ----------
+static void showBootAnimationFrame() {
+  unsigned long t = Millis() - gBootStart;
+  int i = static_cast<int>((t / 20) % (SCREEN_WIDTH / 4 + 1)) * 4;
+  ClearDisplay();
+  DrawText(i, 25, "BLOOP", 2, true);
+  Present();
 }
 
-// ============ GAME LAUNCHING ============
+// ---------- Game forward declarations (step functions declared in header) ----------
+void startSnake();
+void startPong();
 
-void launchGame(const String& gameName) {
-    waitForButtonRelease();
-    int score = 0;
-    
-    if (gameName == "1.Snake") {
-        score = playSnake();
-        saveHighScore(GAME_SNAKE, score);
-    } else if (gameName == "2.Pong") {
-        score = playPong();
-        saveHighScore(GAME_PONG, score);
-    }
-    
-    showMenu();
+// ---------- Sleep pseudo-mode (web) ----------
+static void sleepModeWeb() {
+  ClearDisplay();
+  DrawText(20, 25, "Sleeping...", 1, true);
+  Present();
+  // No real sleep in web; just return to menu after a short pause
+  Delay(500);
 }
 
-// ============ INITIALIZATION ============
-
+// ---------- Manager ----------
 void initGameManager() {
-    Wire.begin(2, 3); // SDA, SCL
-    pinMode(BUTTON_A, INPUT_PULLUP);
-    pinMode(BUTTON_B, INPUT_PULLUP);
-
-    if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
-        while (true); // Halt on display init failure
-    }
-
-    EEPROM.begin(32);
-    loadHighScores();
-    showBootAnimation();
+  gState = SysState::BOOT;
+  gBootStart = Millis();
+  gMenuIndex = 0;
 }
-
-// ============ MAIN LOOP ============
 
 void runGameLoop() {
-    if (currentState == STATE_LOCKED) {
-        if (buttonPressed(BUTTON_A) || buttonPressed(BUTTON_B)) {
-            currentState = STATE_MENU;
-            menuIndex = 0;
-            showMenu();
-        }
-    } else if (currentState == STATE_MENU) {
-        if (buttonPressed(BUTTON_B)) {
-            menuIndex = (menuIndex + 1) % menuCount;
-            showMenu();
-            waitForButtonRelease();
-        }
-        
-        if (buttonPressed(BUTTON_A)) {
-            if (menuItems[menuIndex] == "3.Sleep") {
-                sleepMode();
-            } else {
-                launchGame(menuItems[menuIndex]);
-            }
-        }
+  if (gState == SysState::BOOT) {
+    // 1 second boot animation
+    if (Millis() - gBootStart < 1000) {
+      showBootAnimationFrame();
+      return;
     }
+    gState = SysState::MENU;
+    showMenu();
+    return;
+  }
 
+  if (gState == SysState::MENU) {
+    InputState s = getInputState();
+    if (buttonPressedEdge(s.buttonB, lastDebounceB)) {
+      gMenuIndex = (gMenuIndex + 1) % gMenuCount;
+      showMenu();
+      return;
+    }
+    if (buttonPressedEdge(s.buttonA, lastDebounceA)) {
+      const char* pick = gMenuItems[gMenuIndex];
+      if (std::strcmp(pick, "3.Sleep") == 0) {
+        sleepModeWeb();
+        gMenuIndex = 0;
+        showMenu();
+        return;
+      }
+      if (std::strcmp(pick, "1.Snake") == 0) {
+        gActiveGame = GameID::SNAKE; gGameInited = false; gCurrentScore = 0; gExitReq = gGameOver = false;
+      } else {
+        gActiveGame = GameID::PONG;  gGameInited = false; gCurrentScore = 0; gExitReq = gGameOver = false;
+      }
+      gState = SysState::IN_GAME;
+      return;
+    }
+    return;
+  }
+
+  if (gState == SysState::IN_GAME) {
+    bool stepOk;
+    if (!gGameInited) {
+      if (gActiveGame == GameID::SNAKE) startSnake(); else startPong();
+      gGameInited = true;
+    }
+    if (gActiveGame == GameID::SNAKE)
+      stepOk = stepSnake(gCurrentScore, gExitReq, gGameOver);
+    else
+      stepOk = stepPong (gCurrentScore, gExitReq, gGameOver);
+
+    if (!stepOk || gExitReq) {
+      // Exit back to menu (no score update when forced exit)
+      gState = SysState::MENU;
+      showMenu();
+      return;
+    }
+    if (gGameOver) {
+      considerHighScore(gActiveGame, gCurrentScore);
+      showGameOver((gActiveGame == GameID::SNAKE) ? "SNAKE" : "PONG",
+                   gCurrentScore, getHighScore(gActiveGame));
+      Delay(1500);
+      gState = SysState::MENU;
+      showMenu();
+      return;
+    }
+    return;
+  }
 }
-
-
