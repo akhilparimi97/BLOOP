@@ -77,15 +77,27 @@ namespace Platform {
     }
   }
 
-  bool StorageGet(const char* key,int& outVal){
+  bool StorageGet(const char* key, int& outVal) {
     int ok = EM_ASM_INT({
-      var k=UTF8ToString($0), s=localStorage.getItem(k);
-      if(s===null) return 0; HEAP32[$1>>2]=(parseInt(s)|0); return 1;
+      // Split declarations so the preprocessor doesn't see a comma as an arg separator
+      var k = UTF8ToString($0);
+      var s = (typeof localStorage !== 'undefined') ? localStorage.getItem(k) : null;
+      if (s === null) return 0;
+      // write an int32 back to &outVal
+      setValue($1, (parseInt(s)|0), 'i32');
+      return 1;
     }, key, &outVal);
-    return ok!=0;
+    return ok != 0;
   }
-  void StorageSet(const char* key,int value){
-    EM_ASM({ var k=UTF8ToString($0); localStorage.setItem(k, ($1|0).toString()); }, key, value);
+
+  void StorageSet(const char* key, int value) {
+    EM_ASM({
+      var k = UTF8ToString($0);
+      var v = $1|0;
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(k, v.toString());
+      }
+    }, key, value);
   }
 
 } // namespace Platform
