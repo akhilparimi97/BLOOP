@@ -31,7 +31,12 @@ namespace Platform {
     display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR);
     display.clearDisplay();
     display.display();
-
+    #if defined(ARDUINO_ARCH_AVR)
+      randomSeed(analogRead(0));   // use floating analog pin
+    #else
+      randomSeed(micros());
+    #endif
+    
     // Mark/init EEPROM if magic not set (0xB7 0x10)
     uint8_t m0 = EEPROM.read(EE_MAGIC_ADDR);
     uint8_t m1 = EEPROM.read(EE_MAGIC_ADDR+1);
