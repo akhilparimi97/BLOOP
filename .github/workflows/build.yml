@@ -6,9 +6,20 @@ on:
   pull_request:
     branches: [ main, master ]
 
+# IMPORTANT: Grant write permissions to GitHub Actions
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    
+    # Use GitHub Pages environment for security
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     
     steps:
     - name: Checkout repository
@@ -46,13 +57,20 @@ jobs:
         echo "Commit: ${{ github.sha }}" >> dist/README.md
         ls -la dist/
     
+    - name: Setup Pages
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      uses: actions/configure-pages@v4
+    
+    - name: Upload Pages artifact
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: ./dist
+    
     - name: Deploy to GitHub Pages
       if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-      uses: peaceiris/actions-gh-pages@v4
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./dist
-        force_orphan: true
+      id: deployment
+      uses: actions/deploy-pages@v4
         
     - name: Upload build artifacts (for debugging)
       if: failure()
