@@ -6,13 +6,13 @@
 Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
 // Include game code
-#include "../src/game.h"
+#include "src/bloop_entry.h"
 
 void setup() {
-  Serial.begin(115200);
-  gameSetup();
+  bloop_setup();
 }
 
 void loop() {
-  gameLoop();
+  bloop_loop();
+  // No extra delay here; the game uses Millis()/Delay() internally for pacing.
 }
