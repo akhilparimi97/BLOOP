@@ -54,24 +54,40 @@ namespace {
   }
 
   static bool moveSnake() {
-    // shift body
-    for (int i=snakeLen-1;i>0;--i) snake[i]=snake[i-1];
-    switch(dir){case UP: snake[0].y--;break;case DOWN: snake[0].y++;break;case LEFT: snake[0].x--;break;case RIGHT: snake[0].x++;break;}
-    // wrap
-    if (snake[0].x < 0) snake[0].x = GRID_WIDTH - 1;
-    if (snake[0].x >= GRID_WIDTH) snake[0].x = 0;
-    if (snake[0].y < 0) snake[0].y = GRID_HEIGHT - 1;
-    if (snake[0].y >= GRID_HEIGHT) snake[0].y = 0;
-    // self-hit
-    for (int i=1;i<snakeLen;i++) if (snake[0].x==snake[i].x && snake[0].y==snake[i].y) return false;
-    // eat
-    if (snake[0].x==food.x && snake[0].y==food.y) {
-      snakeLen = std::min(snakeLen+1, MAX_SNAKE_LENGTH); // grow
-      // tail segment naturally persists; we redraw full body next frame
-      placeFood();
+  // remember old tail before shifting so growth can append it
+  Pt oldTail = snake[snakeLen - 1];
+
+  // shift body forward
+  for (int i = snakeLen - 1; i > 0; --i) snake[i] = snake[i - 1];
+
+  // advance head
+  switch (dir) { case UP:    snake[0].y--; break;
+                 case DOWN:  snake[0].y++; break;
+                 case LEFT:  snake[0].x--; break;
+                 case RIGHT: snake[0].x++; break; }
+
+  // wrap
+  if (snake[0].x < 0) snake[0].x = GRID_WIDTH - 1;
+  if (snake[0].x >= GRID_WIDTH) snake[0].x = 0;
+  if (snake[0].y < 0) snake[0].y = GRID_HEIGHT - 1;
+  if (snake[0].y >= GRID_HEIGHT) snake[0].y = 0;
+
+  // self-hit
+  for (int i = 1; i < snakeLen; ++i)
+    if (snake[0].x == snake[i].x && snake[0].y == snake[i].y) return false;
+
+  // eat
+  if (snake[0].x == food.x && snake[0].y == food.y) {
+    if (snakeLen < MAX_SNAKE_LENGTH) {
+      // grow by appending the previous tail position so no junk coords appear
+      snakeLen = std::min(snakeLen + 1, MAX_SNAKE_LENGTH);
+      snake[snakeLen - 1] = oldTail;
     }
-    return true;
+    placeFood();
   }
+
+  return true;
+}
 
   static void drawSnake(int score) {
     // FULL redraw each frame -> no ghost artifacts
@@ -121,7 +137,7 @@ bool stepSnake(int& outScore, bool& exitRequested, bool& gameOver) {
 
   // Turn handling
   static bool turnedThisFrame = false;
-  static int  safe = 2;
+  static int  safe = 1;
   if (!turnedThisFrame && safe <= 0) {
     if (in.buttonA) { Dir nd = (Dir)((dir + 3) % 4); if (isValid(nd, dir)) { dir = nd; turnedThisFrame = true; } }
     else if (in.buttonB) { Dir nd = (Dir)((dir + 1) % 4); if (isValid(nd, dir)) { dir = nd; turnedThisFrame = true; } }
@@ -141,3 +157,4 @@ bool stepSnake(int& outScore, bool& exitRequested, bool& gameOver) {
   gameOver = false;
   return true;
 }
+
