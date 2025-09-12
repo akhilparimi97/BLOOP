@@ -1,6 +1,7 @@
 #include "Pong.h"
 #include "platform.h"
 #include <cstdlib>
+#include <algorithm> 
 
 using namespace Platform;
 
@@ -153,3 +154,4 @@ bool stepPong(int& outScore, bool& exitRequested, bool& gameOver) {
   gameOver = false;
   return true;
 }
+
