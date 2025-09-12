@@ -1,14 +1,14 @@
 #include <emscripten.h>
 #include <emscripten/html5.h>
-#include "../src/game.h"
+#include "../src/bloop_entry.h"
 
 // Global game loop function
 void main_loop() {
-  gameLoop();
+  bloop_loop();
 }
 
 int main() {
-  gameSetup();
+  bloop_setup();
   
   // Set up the main loop
   emscripten_set_main_loop(main_loop, 60, 1); // 60 FPS
