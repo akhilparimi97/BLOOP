@@ -3,11 +3,11 @@
 #include "platform.h"
 
 void bloop_setup() {
+  Platform::Init();        // <— HW: init display & pins; Web: no-op
   Platform::ClearDisplay();
   initGameManager();
 }
 
 void bloop_loop() {
   runGameLoop();
-  // The loop draws/presents as needed each frame
 }
