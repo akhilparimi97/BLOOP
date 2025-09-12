@@ -11,7 +11,7 @@ namespace {
   constexpr int BALL_SIZE     = 2;
   constexpr int PADDLE_OFFSET = 3;
   constexpr int PADDLE_SPEED_BASE  = 2;     // base; real speed scales down by SpeedScale()
-  constexpr unsigned TICK_MS_BASE  = 15;    // base; real tick slows by SpeedScale()
+  constexpr unsigned TICK_MS_BASE  = 20;    // base; real tick slows by SpeedScale()
 
   struct Paddle { int x,y; };
   struct Ball { int x,y, vx, vy; };
@@ -154,4 +154,5 @@ bool stepPong(int& outScore, bool& exitRequested, bool& gameOver) {
   gameOver = false;
   return true;
 }
+
 
