@@ -2,6 +2,8 @@
 #include "platform.h"
 #include <algorithm>
 #include <cstring>
+#include <cstdio>   // <-- add this
+
 
 using namespace Platform;
 
@@ -212,3 +214,4 @@ void runGameLoop() {
     return;
   }
 }
+
