@@ -1,5 +1,7 @@
 #include "Pong.h"
 #include "platform.h"
+#include <cstdlib>     // <-- add this for std::abs(int)
+
 using namespace Platform;
 
 namespace {
@@ -129,3 +131,4 @@ bool stepPong(int& outScore, bool& exitRequested, bool& gameOver) {
   gameOver = false;
   return true;
 }
+
