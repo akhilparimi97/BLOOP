@@ -1,359 +1,49 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BLOOP - Web Emulator</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 20px;
-            font-family: 'Courier New', monospace;
-            background: linear-gradient(135deg, #0a0a0a, #1a1a2e);
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-        }
-        
-        .container {
-            text-align: center;
-            max-width: 700px;
-        }
-        
-        h1 {
-            color: #00ff00;
-            text-shadow: 0 0 20px #00ff00, 0 0 40px #00ff00;
-            margin-bottom: 10px;
-            font-size: 3em;
-            animation: glow 2s ease-in-out infinite alternate;
-        }
-        
-        @keyframes glow {
-            from { text-shadow: 0 0 20px #00ff00, 0 0 30px #00ff00, 0 0 40px #00ff00; }
-            to { text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00, 0 0 30px #00ff00; }
-        }
-        
-        .subtitle {
-            color: #888;
-            margin-bottom: 30px;
-            font-size: 1.2em;
-        }
-        
-        .game-container {
-            background: linear-gradient(145deg, #2a2a3a, #1a1a2a);
-            padding: 30px;
-            border-radius: 20px;
-            box-shadow: 0 0 30px rgba(0,255,0,0.2), inset 0 0 20px rgba(0,0,0,0.3);
-            margin: 20px 0;
-            border: 2px solid #333;
-        }
-        
-        canvas {
-            border: 3px solid #00ff00;
-            background: #000;
-            image-rendering: pixelated;
-            width: 512px;
-            height: 256px;
-            box-shadow: 0 0 20px rgba(0,255,0,0.3);
-            border-radius: 8px;
-        }
-        
-        .controls {
-            margin-top: 30px;
-            padding: 20px;
-            background: linear-gradient(145deg, #333, #222);
-            border-radius: 15px;
-            border: 1px solid #444;
-        }
-        
-        .controls h3 {
-            color: #00ff00;
-            margin-top: 0;
-            text-shadow: 0 0 10px #00ff00;
-        }
-        
-        .instructions {
-            margin-top: 30px;
-            font-size: 14px;
-            line-height: 1.8;
-            color: #ccc;
-            background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
-            padding: 20px;
-            border-radius: 15px;
-            border: 1px solid #333;
-        }
-        
-        .instructions h3 {
-            color: #00ffff;
-            text-shadow: 0 0 10px #00ffff;
-        }
-        
-        .status {
-            margin: 15px 0;
-            padding: 10px;
-            border-radius: 8px;
-            font-weight: bold;
-        }
-        
-        .loading {
-            color: #ffff00;
-            background: rgba(255,255,0,0.1);
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-        
-        .error {
-            color: #ff4444;
-            background: rgba(255,68,68,0.1);
-        }
-        
-        .success {
-            color: #44ff44;
-            background: rgba(68,255,68,0.1);
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-        
-        .key {
-            display: inline-block;
-            padding: 8px 12px;
-            background: linear-gradient(145deg, #555, #333);
-            border-radius: 6px;
-            margin: 0 8px;
-            font-weight: bold;
-            border: 1px solid #666;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-        
-        .github-link {
-            margin-top: 20px;
-            color: #888;
-            text-decoration: none;
-            transition: color 0.3s;
-        }
-        
-        .github-link:hover {
-            color: #00ff00;
-            text-shadow: 0 0 5px #00ff00;
-        }
-        
-        @media (max-width: 600px) {
-            canvas {
-                width: 320px;
-                height: 160px;
-            }
-            
-            h1 {
-                font-size: 2em;
-            }
-            
-            .game-container {
-                padding: 15px;
-            }
-        }
-    </style>
+  <meta charset="utf-8">
+  <title>BLOOP Emulator</title>
+  <style>
+    body { background: #111; color: #eee; font-family: sans-serif; text-align: center; }
+    canvas { border: 1px solid #888; margin-top: 20px; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>BLOOP</h1>
-        <p class="subtitle">Arduino Game - Web Emulator</p>
-        
-        <div class="game-container">
-            <canvas id="gameCanvas" width="128" height="64"></canvas>
-            <div id="status" class="status loading">🎮 Loading game engine...</div>
-        </div>
-        
-        <div class="controls">
-            <h3>🎮 Controls</h3>
-            <p>
-                Button A: <span class="key">←</span> (ArrowLeft) |
-                Button B: <span class="key">→</span> (ArrowRight)
-            </p>
-            <p>Press any key to start • Both keys together to pause</p>
-        </div>
-        
-        <a href="https://github.com/akhilparimi97/BLOOP" class="github-link">
-            💻 View Source on GitHub
-        </a>
-    </div>
+  <h1>BLOOP – Web Emulator</h1>
+  <p>Boots into BLOOP → Menu → Snake/Pong</p>
 
-    <script>
-        // Game state
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const status = document.getElementById('status');
-        
-        let buttons = {
-            5: false,  // GPIO5 -> ArrowLeft
-            6: false   // GPIO6 -> ArrowRight
-        };
-        
-        let pixelBuffer = new Array(128 * 64).fill(0);
-        let gameLoaded = false;
-        
-        // Scale factor for display
-        const SCALE_X = canvas.width / 128;
-        const SCALE_Y = canvas.height / 64;
-        
-        // Initialize canvas with retro pattern
-        function initCanvas() {
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw loading pattern
-            ctx.fillStyle = '#001100';
-            for(let i = 0; i < canvas.width; i += 4) {
-                for(let j = 0; j < canvas.height; j += 4) {
-                    if((i + j) % 8 === 0) {
-                        ctx.fillRect(i, j, 2, 2);
-                    }
-                }
-            }
-        }
-        
-        initCanvas();
-        
-        // Keyboard handling with visual feedback
-        document.addEventListener('keydown', (e) => {
-            switch(e.code) {
-                case 'ArrowLeft':
-                    buttons[5] = true;
-                    e.preventDefault();
-                    if(gameLoaded) {
-                        // Visual feedback
-                        canvas.style.boxShadow = '0 0 20px rgba(255,0,0,0.5)';
-                        setTimeout(() => canvas.style.boxShadow = '0 0 20px rgba(0,255,0,0.3)', 100);
-                    }
-                    break;
-                case 'ArrowRight':
-                    buttons[6] = true;
-                    e.preventDefault();
-                    if(gameLoaded) {
-                        // Visual feedback
-                        canvas.style.boxShadow = '0 0 20px rgba(0,0,255,0.5)';
-                        setTimeout(() => canvas.style.boxShadow = '0 0 20px rgba(0,255,0,0.3)', 100);
-                    }
-                    break;
-            }
-        });
-        
-        document.addEventListener('keyup', (e) => {
-            switch(e.code) {
-                case 'ArrowLeft':
-                    buttons[5] = false;
-                    e.preventDefault();
-                    break;
-                case 'ArrowRight':
-                    buttons[6] = false;
-                    e.preventDefault();
-                    break;
-            }
-        });
-        
-        // Game interface functions
-        window.drawPixel = function(x, y, color) {
-            if (x >= 0 && x < 128 && y >= 0 && y < 64) {
-                pixelBuffer[y * 128 + x] = color;
-            }
-        };
-        
-        window.updateDisplay = function() {
-            // Clear canvas
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw pixels with slight glow effect
-            for (let y = 0; y < 64; y++) {
-                for (let x = 0; x < 128; x++) {
-                    if (pixelBuffer[y * 128 + x]) {
-                        const pixelX = Math.floor(x * SCALE_X);
-                        const pixelY = Math.floor(y * SCALE_Y);
-                        const pixelW = Math.ceil(SCALE_X);
-                        const pixelH = Math.ceil(SCALE_Y);
-                        
-                        // Main pixel
-                        ctx.fillStyle = '#00ff00';
-                        ctx.fillRect(pixelX, pixelY, pixelW, pixelH);
-                        
-                        // Subtle glow for retro effect
-                        if(pixelW > 2 && pixelH > 2) {
-                            ctx.fillStyle = 'rgba(0,255,0,0.3)';
-                            ctx.fillRect(pixelX-1, pixelY-1, pixelW+2, pixelH+2);
-                        }
-                    }
-                }
-            }
-        };
-        
-        window.clearDisplay = function() {
-            pixelBuffer.fill(0);
-        };
-        
-        window.isButtonPressed = function(pin) {
-            return buttons[pin] ? 1 : 0;
-        };
-        
-        // Loading states
-        function updateStatus(message, className = '') {
-            status.textContent = message;
-            status.className = `status ${className}`;
-        }
-        
-        // Load and start the game
-        const script = document.createElement('script');
-        script.src = 'bloop.js';
-        script.onload = function() {
-            gameLoaded = true;
-            updateStatus('🎮 Game ready! Use arrow keys to play.', 'success');
-            
-            // Clear loading pattern
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-        };
-        script.onerror = function() {
-            updateStatus('❌ Failed to load game. Building WebAssembly...', 'error');
-            
-            // Show helpful message
-            setTimeout(() => {
-                updateStatus('⚠️ WebAssembly build needed. Check GitHub Actions for build status.', 'error');
-            }, 3000);
-        };
-        document.head.appendChild(script);
-        
-        // Easter egg: Konami code
-        let konamiCode = [];
-        const konami = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight'];
-        
-        document.addEventListener('keydown', (e) => {
-            konamiCode.push(e.code);
-            if(konamiCode.length > konami.length) konamiCode.shift();
-            
-            if(konamiCode.length === konami.length && konamiCode.every((code, i) => code === konami[i])) {
-                // Konami code activated!
-                document.body.style.background = 'linear-gradient(45deg, #ff0000, #00ff00, #0000ff, #ff0000)';
-                document.body.style.backgroundSize = '400% 400%';
-                document.body.style.animation = 'rainbow 2s ease infinite';
-                
-                const style = document.createElement('style');
-                style.textContent = `
-                    @keyframes rainbow {
-                        0% { background-position: 0% 50%; }
-                        50% { background-position: 100% 50%; }
-                        100% { background-position: 0% 50%; }
-                    }
-                `;
-                document.head.appendChild(style);
-                
-                setTimeout(() => {
-                    document.body.style.background = 'linear-gradient(135deg, #0a0a0a, #1a1a2e)';
-                    document.body.style.animation = '';
-                }, 5000);
-            }
-        });
-    </script>
+  <h3>Controls</h3>
+  <ul>
+    <li>A Button: ← Arrow</li>
+    <li>B Button: → Arrow</li>
+    <li>Exit: Hold both ← and → together for ~1.5s (progress bar shown)</li>
+  </ul>
+
+  <canvas id="canvas" width="128" height="64"></canvas>
+
+  <script src="bloop.js"></script>
+  <script>
+    var Module = {
+      canvas: document.getElementById('canvas')
+    };
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'ArrowLeft') {
+        Module.ccall('bridgeSetButton', null, ['number','number'], [0, 1]);
+      }
+      if (e.code === 'ArrowRight') {
+        Module.ccall('bridgeSetButton', null, ['number','number'], [1, 1]);
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'ArrowLeft') {
+        Module.ccall('bridgeSetButton', null, ['number','number'], [0, 0]);
+      }
+      if (e.code === 'ArrowRight') {
+        Module.ccall('bridgeSetButton', null, ['number','number'], [1, 0]);
+      }
+    });
+  </script>
 </body>
 </html>
