@@ -10,7 +10,7 @@ namespace {
   constexpr int GRID_HEIGHT = PLAYFIELD_HEIGHT / GRID_SIZE;
   constexpr int GRID_WIDTH  = SCREEN_WIDTH / GRID_SIZE;
   constexpr int MAX_SNAKE_LENGTH = 64;
-  constexpr unsigned MOVE_DELAY_MS = 300;
+  constexpr unsigned MOVE_DELAY_MS_BASE = 300;   // base timing (scaled by SpeedScale)
   constexpr int INITIAL_SNAKE_LENGTH = 3;
 
   enum Dir { RIGHT, DOWN, LEFT, UP };
@@ -21,10 +21,6 @@ namespace {
   static Dir dir;
   static Pt  food;
   static unsigned long lastMoveTime;
-  static bool turnMade;
-  static int  safeSteps;
-  static Pt  prevTail = {-1,-1};
-
   static unsigned long exitHoldStart = 0;
   static bool inited = false;
 
@@ -54,35 +50,40 @@ namespace {
     snake[2] = {GRID_WIDTH/2 - 2, GRID_HEIGHT/2};
     dir = RIGHT;
     placeFood();
-    safeSteps = 2;
-    turnMade = false;
-    prevTail = {-1,-1};
     lastMoveTime = Millis();
   }
 
   static bool moveSnake() {
-    prevTail = snake[snakeLen-1];
+    // shift body
     for (int i=snakeLen-1;i>0;--i) snake[i]=snake[i-1];
     switch(dir){case UP: snake[0].y--;break;case DOWN: snake[0].y++;break;case LEFT: snake[0].x--;break;case RIGHT: snake[0].x++;break;}
+    // wrap
     if (snake[0].x < 0) snake[0].x = GRID_WIDTH - 1;
     if (snake[0].x >= GRID_WIDTH) snake[0].x = 0;
     if (snake[0].y < 0) snake[0].y = GRID_HEIGHT - 1;
     if (snake[0].y >= GRID_HEIGHT) snake[0].y = 0;
+    // self-hit
     for (int i=1;i<snakeLen;i++) if (snake[0].x==snake[i].x && snake[0].y==snake[i].y) return false;
+    // eat
     if (snake[0].x==food.x && snake[0].y==food.y) {
-      snakeLen = std::min(snakeLen+1, MAX_SNAKE_LENGTH);
+      snakeLen = std::min(snakeLen+1, MAX_SNAKE_LENGTH); // grow
+      // tail segment naturally persists; we redraw full body next frame
       placeFood();
-      prevTail = {-1,-1};
     }
     return true;
   }
 
   static void drawSnake(int score) {
+    // FULL redraw each frame -> no ghost artifacts
+    clearPlayfield();
     drawStatusBar("SNAKE", score, getHighScore(GameID::SNAKE));
-    if (prevTail.x != -1)
-      FillRect(prevTail.x*GRID_SIZE, prevTail.y*GRID_SIZE + STATUS_BAR_HEIGHT, GRID_SIZE, GRID_SIZE, false);
-    FillRect(snake[0].x*GRID_SIZE, snake[0].y*GRID_SIZE + STATUS_BAR_HEIGHT, GRID_SIZE, GRID_SIZE, true);
-    FillRect(food.x*GRID_SIZE,  food.y*GRID_SIZE  + STATUS_BAR_HEIGHT, GRID_SIZE, GRID_SIZE, true);
+
+    // Draw snake body
+    for (int i=0;i<snakeLen;i++)
+      FillRect(snake[i].x*GRID_SIZE, snake[i].y*GRID_SIZE + STATUS_BAR_HEIGHT, GRID_SIZE, GRID_SIZE, true);
+
+    // Food
+    FillRect(food.x*GRID_SIZE, food.y*GRID_SIZE + STATUS_BAR_HEIGHT, GRID_SIZE, GRID_SIZE, true);
     Present();
   }
 
@@ -113,12 +114,12 @@ bool stepSnake(int& outScore, bool& exitRequested, bool& gameOver) {
     if (prog >= 1.0f) { exitRequested = true; exitHoldStart = 0; return true; }
     showExitHoldBar(prog);
     Delay(50);
-    return true; // <-- do NOT advance game while holding
+    return true;
   } else {
     exitHoldStart = 0;
   }
 
-  // Turn handling (rate-limited)
+  // Turn handling
   static bool turnedThisFrame = false;
   static int  safe = 2;
   if (!turnedThisFrame && safe <= 0) {
@@ -128,7 +129,8 @@ bool stepSnake(int& outScore, bool& exitRequested, bool& gameOver) {
 
   int score = snakeLen - INITIAL_SNAKE_LENGTH;
 
-  if (Millis() - lastMoveTime > MOVE_DELAY_MS) {
+  const unsigned moveDelay = (unsigned)(MOVE_DELAY_MS_BASE * SpeedScale());
+  if (Millis() - lastMoveTime > moveDelay) {
     if (!moveSnake()) { gameOver = true; outScore = score; return true; }
     lastMoveTime = Millis();
     safe--; turnedThisFrame = false;
