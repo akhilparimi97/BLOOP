@@ -1,3 +1,6 @@
 #pragma once
+#include "GameManager.h"
 
-int playPong();
+// Non-blocking per-frame pong
+void startPong();
+bool stepPong(int& outScore, bool& exitRequested, bool& gameOver);
