@@ -23,7 +23,7 @@ namespace Platform {
   void Delay(unsigned ms)      { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
 
   // <<< Slow the web build to feel like hardware
-  float SpeedScale() { return 1.8f; } // tweak 1.6–2.0 to taste
+  float SpeedScale() { return 4.0f; } // was 1.8 to taste
 
   int RandomInt(int min_inclusive, int max_exclusive) {
     static bool seeded = false;
