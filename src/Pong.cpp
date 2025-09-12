@@ -1,6 +1,6 @@
 #include "Pong.h"
 #include "platform.h"
-#include <cstdlib>     // <-- add this for std::abs(int)
+#include <cstdlib>
 
 using namespace Platform;
 
@@ -23,6 +23,10 @@ namespace {
   static unsigned long lastTick = 0;
   static unsigned long exitHoldStart = 0;
   static bool          inited = false;
+
+  // Get Ready gating
+  static unsigned long readyUntil = 0;
+  static bool clearedAfterReady = false;
 
   static void resetGame() {
     player.x = SCREEN_WIDTH - PADDLE_WIDTH - PADDLE_OFFSET;
@@ -78,14 +82,42 @@ namespace {
     return true;
   }
 
+  static void drawDashedCourt() {
+    // dashed rectangle border
+    const int dash = 2, gap = 2;
+
+    // top
+    for (int x=0; x<SCREEN_WIDTH; x += dash+gap)
+      for (int i=0; i<dash && x+i<SCREEN_WIDTH; ++i)
+        DrawPixel(x+i, STATUS_BAR_HEIGHT, true);
+
+    // bottom
+    for (int x=0; x<SCREEN_WIDTH; x += dash+gap)
+      for (int i=0; i<dash && x+i<SCREEN_WIDTH; ++i)
+        DrawPixel(x+i, SCREEN_HEIGHT-1, true);
+
+    // left
+    for (int y=STATUS_BAR_HEIGHT; y<SCREEN_HEIGHT; y += dash+gap)
+      for (int i=0; i<dash && y+i<SCREEN_HEIGHT; ++i)
+        DrawPixel(0, y+i, true);
+
+    // right
+    for (int y=STATUS_BAR_HEIGHT; y<SCREEN_HEIGHT; y += dash+gap)
+      for (int i=0; i<dash && y+i<SCREEN_HEIGHT; ++i)
+        DrawPixel(SCREEN_WIDTH-1, y+i, true);
+
+    // center dotted line
+    for (int y = STATUS_BAR_HEIGHT; y < SCREEN_HEIGHT; y += 4)
+      DrawPixel(SCREEN_WIDTH/2, y, true);
+  }
+
   static void drawGame() {
     clearPlayfield();
     drawStatusBar("PONG", playerScore, getHighScore(GameID::PONG));
-    DrawRect(0, STATUS_BAR_HEIGHT, SCREEN_WIDTH, PLAYFIELD_HEIGHT, true);
-    for (int y = STATUS_BAR_HEIGHT; y < SCREEN_HEIGHT; y+=4) DrawPixel(SCREEN_WIDTH/2, y, true);
-    FillRect(cpu.x, cpu.y, PADDLE_WIDTH, PADDLE_HEIGHT, true);
+    drawDashedCourt();
+    FillRect(cpu.x,    cpu.y,    PADDLE_WIDTH, PADDLE_HEIGHT, true);
     FillRect(player.x, player.y, PADDLE_WIDTH, PADDLE_HEIGHT, true);
-    FillRect(ball.x, ball.y, BALL_SIZE, BALL_SIZE, true);
+    FillRect(ball.x,   ball.y,   BALL_SIZE,    BALL_SIZE,     true);
     Present();
   }
 
@@ -95,20 +127,28 @@ void startPong() {
   inited = true;
   resetGame();
   showGetReady("PONG", "A: Up, B: Down");
+  readyUntil = Millis() + 1000; // 1s
+  clearedAfterReady = false;
   exitHoldStart = 0;
 }
 
 bool stepPong(int& outScore, bool& exitRequested, bool& gameOver) {
   if (!inited) startPong();
 
-  // Input & exit hold
+  // Pause during Get Ready
+  if (Millis() < readyUntil) return true;
+  if (!clearedAfterReady) { clearPlayfield(); Present(); clearedAfterReady = true; }
+
   InputState in = getInputState();
+
+  // Hold-to-exit (PAUSES GAME)
   if (in.both) {
     if (exitHoldStart == 0) exitHoldStart = Millis();
     float prog = (float)(Millis() - exitHoldStart) / 1500.0f;
     if (prog >= 1.0f) { exitRequested = true; exitHoldStart = 0; return true; }
     showExitHoldBar(prog);
     Delay(50);
+    return true; // <-- pause gameplay while holding
   } else {
     exitHoldStart = 0;
   }
@@ -119,7 +159,7 @@ bool stepPong(int& outScore, bool& exitRequested, bool& gameOver) {
   if (in.buttonB && player.y < SCREEN_HEIGHT - PADDLE_HEIGHT - 2) { player.y += PADDLE_SPEED; moved = true; }
   if (!gameActive && moved) serveBall();
 
-  // Update with tick pacing
+  // Tick update
   if (Millis() - lastTick >= TICK_MS) {
     updateCPU();
     if (!updateBall()) { gameOver = true; outScore = playerScore; return true; }
@@ -131,4 +171,3 @@ bool stepPong(int& outScore, bool& exitRequested, bool& gameOver) {
   gameOver = false;
   return true;
 }
-
