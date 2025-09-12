@@ -1,19 +1,23 @@
 #include "GameManager.h"
 #include "SnakeGame.h"
 #include "Pong.h"
+
+#ifndef __EMSCRIPTEN__
 #include <Wire.h>
 #include <EEPROM.h>
 #include "esp_sleep.h"
+#endif
 
 // Global variables
-#ifdef __EMSCRIPTEN__
-DisplayShim display;
-#else
+#ifndef __EMSCRIPTEN__
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+#else
+DisplayShim display;
 #endif
 
 int highScores[NUM_GAMES];
 bool justWoke = false;
+
 
 // Static variables
 static enum SystemState { STATE_LOCKED, STATE_MENU } currentState = STATE_LOCKED;
@@ -285,3 +289,4 @@ void runGameLoop() {
     }
 
 }
+
