@@ -42,5 +42,3 @@ struct DisplayShim {
         for (int j = 0; j < h; j++) drawFastHLine(x, y + j, w, color);
     }
 };
-
-static DisplayShim display;
