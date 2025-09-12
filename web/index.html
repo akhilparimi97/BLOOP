@@ -1,49 +1,63 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>BLOOP Emulator</title>
-  <style>
-    body { background: #111; color: #eee; font-family: sans-serif; text-align: center; }
-    canvas { border: 1px solid #888; margin-top: 20px; }
-  </style>
+<meta charset="utf-8">
+<title>BLOOP Emulator</title>
+<style>
+  body { background:#111; color:#eee; font:14px/1.4 system-ui, sans-serif; text-align:center; }
+  canvas { image-rendering: pixelated; width:512px; height:256px; border:1px solid #555; margin-top:16px; }
+</style>
 </head>
 <body>
   <h1>BLOOP – Web Emulator</h1>
-  <p>Boots into BLOOP → Menu → Snake/Pong</p>
-
-  <h3>Controls</h3>
-  <ul>
+  <p>Boot → Menu → Snake/Pong → Get Ready → Game Over. Exit: hold ← and → together (~1.5s).</p>
+  <ul style="display:inline-block;text-align:left;">
     <li>A Button: ← Arrow</li>
     <li>B Button: → Arrow</li>
-    <li>Exit: Hold both ← and → together for ~1.5s (progress bar shown)</li>
+    <li>Exit: Hold both ← and →</li>
   </ul>
+  <br/>
+  <canvas id="screen" width="128" height="64"></canvas>
 
-  <canvas id="canvas" width="128" height="64"></canvas>
-
-  <script src="bloop.js"></script>
   <script>
-    var Module = {
-      canvas: document.getElementById('canvas')
-    };
+    const canvas = document.getElementById('screen');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const W = canvas.width, H = canvas.height;
+    const fb = new Uint8Array(W*H); // 0/1 per pixel
+
+    function drawPixel(x, y, on) {
+      if (x < 0 || y < 0 || x >= W || y >= H) return;
+      fb[y*W + x] = on ? 1 : 0;
+    }
+    function clearDisplay() { fb.fill(0); ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H); }
+    function updateDisplay() {
+      const img = ctx.getImageData(0,0,W,H);
+      const d = img.data;
+      for (let i=0, p=0; i<fb.length; ++i, p+=4) {
+        const v = fb[i] ? 255 : 0;
+        d[p]=d[p+1]=d[p+2]=v; d[p+3]=255;
+      }
+      ctx.putImageData(img,0,0);
+    }
+
+    let buttons = [0,0]; // 0:A (Left), 1:B (Right)
+    function isButtonPressed(pin) { return (buttons[pin|0]|0); }
 
     window.addEventListener('keydown', (e) => {
-      if (e.code === 'ArrowLeft') {
-        Module.ccall('bridgeSetButton', null, ['number','number'], [0, 1]);
-      }
-      if (e.code === 'ArrowRight') {
-        Module.ccall('bridgeSetButton', null, ['number','number'], [1, 1]);
-      }
+      if (e.code === 'ArrowLeft')  { buttons[0] = 1; e.preventDefault(); }
+      if (e.code === 'ArrowRight') { buttons[1] = 1; e.preventDefault(); }
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'ArrowLeft')  { buttons[0] = 0; e.preventDefault(); }
+      if (e.code === 'ArrowRight') { buttons[1] = 0; e.preventDefault(); }
     });
 
-    window.addEventListener('keyup', (e) => {
-      if (e.code === 'ArrowLeft') {
-        Module.ccall('bridgeSetButton', null, ['number','number'], [0, 0]);
-      }
-      if (e.code === 'ArrowRight') {
-        Module.ccall('bridgeSetButton', null, ['number','number'], [1, 0]);
-      }
-    });
+    // Emscripten module config
+    var Module = {
+      canvas: canvas
+    };
   </script>
+
+  <script src="bloop.js"></script>
 </body>
 </html>
