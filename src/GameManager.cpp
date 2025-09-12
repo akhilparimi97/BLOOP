@@ -8,12 +8,24 @@
 #include "esp_sleep.h"
 #endif
 
-// Global variables
+// Global display
 #ifndef __EMSCRIPTEN__
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 #else
-DisplayShim display;
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, nullptr, -1);
 #endif
+
+int highScores[NUM_GAMES];
+bool justWoke = false;
+
+// Static variables
+static enum SystemState { STATE_LOCKED, STATE_MENU } currentState = STATE_LOCKED;
+static uint8_t menuIndex = 0;
+static String menuItems[] = {"1.Snake", "2.Pong", "3.Sleep"};
+static const int menuCount = sizeof(menuItems) / sizeof(menuItems[0]);
+static unsigned long lastPressA = 0;
+static unsigned long lastPressB = 0;
+
 
 int highScores[NUM_GAMES];
 bool justWoke = false;
@@ -289,4 +301,5 @@ void runGameLoop() {
     }
 
 }
+
 
