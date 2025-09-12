@@ -6,7 +6,12 @@
 #include "esp_sleep.h"
 
 // Global variables
+#ifdef __EMSCRIPTEN__
+DisplayShim display;
+#else
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+#endif
+
 int highScores[NUM_GAMES];
 bool justWoke = false;
 
@@ -278,4 +283,5 @@ void runGameLoop() {
             }
         }
     }
+
 }
