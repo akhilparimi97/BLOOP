@@ -24,7 +24,8 @@ namespace Platform {
   unsigned long Millis()       { return static_cast<unsigned long>(js_now()); }
   void Delay(unsigned ms)      { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
 
-  float SpeedScale() { return 3.0f; } // retro slowdown (tune 2.5–4.0)
+  // Slow web to retro vibe (increase for slower gameplay)
+  float SpeedScale() { return 3.0f; }
 
   int RandomInt(int min_inclusive, int max_exclusive) {
     static bool seeded = false;
@@ -36,14 +37,22 @@ namespace Platform {
   void ClearDisplay() { js_clear_display(); }
   void Present()      { js_display(); }
 
-  void DrawPixel(int x,int y,bool on){ if(x<0||y<0||x>=SCREEN_WIDTH||y>=SCREEN_HEIGHT)return; js_draw_pixel(x,y,on?1:0); }
+  void DrawPixel(int x,int y,bool on){
+    if(x<0||y<0||x>=SCREEN_WIDTH||y>=SCREEN_HEIGHT) return;
+    js_draw_pixel(x,y,on?1:0);
+  }
+
   void DrawRect(int x,int y,int w,int h,bool on){
     for (int i=0;i<w;++i){ DrawPixel(x+i,y,on); DrawPixel(x+i,y+h-1,on); }
     for (int j=0;j<h;++j){ DrawPixel(x,y+j,on); DrawPixel(x+w-1,y+j,on); }
   }
+
   void FillRect(int x,int y,int w,int h,bool on){
-    for (int j=0;j<h;++j) for (int i=0;i<w;++i) DrawPixel(x+i,y+j,on);
+    for (int j=0;j<h;++j)
+      for (int i=0;i<w;++i)
+        DrawPixel(x+i,y+j,on);
   }
+
   void DrawLine(int x0,int y0,int x1,int y1,bool on){
     int dx=std::abs(x1-x0), sx=x0<x1?1:-1;
     int dy=-std::abs(y1-y0), sy=y0<y1?1:-1;
@@ -57,11 +66,11 @@ namespace Platform {
     }
   }
 
-  // 5x7 text rasterizer (unchanged)
+  // 5x7 text rasterizer
   static void DrawChar(int x,int y,char c,int scale,bool on){
     if(c<32||c>127) c='?';
-    extern const uint8_t FONT5x7[96][5];
-    const uint8_t* g = FONT5x7[c-32];
+    // IMPORTANT: refer to the global-scope font; do NOT declare extern inside this namespace.
+    const uint8_t* g = ::FONT5x7[c-32];
     for(int col=0; col<5; ++col){
       uint8_t bits=g[col];
       for(int row=0; row<7; ++row){
@@ -73,14 +82,17 @@ namespace Platform {
       }
     }
   }
+
   void DrawText(int x,int y,const char* t,int scale,bool on){
-    int cx=x; for(const char* p=t; *p; ++p){
+    int cx=x;
+    for(const char* p=t; *p; ++p){
       if(*p=='\n'){ y+=8*scale; cx=x; continue; }
-      DrawChar(cx,y,*p,scale,on); cx+=6*scale;
+      DrawChar(cx,y,*p,scale,on);
+      cx+=6*scale;
     }
   }
 
-  // Storage via localStorage (split declarations to satisfy EM_ASM parser)
+  // Storage via localStorage (split declarations so EM_ASM parser doesn't misread commas)
   bool StorageGet(const char* key, int& outVal) {
     int ok = EM_ASM_INT({
       var k = UTF8ToString($0);
@@ -91,11 +103,14 @@ namespace Platform {
     }, key, &outVal);
     return ok != 0;
   }
+
   void StorageSet(const char* key, int value) {
     EM_ASM({
       var k = UTF8ToString($0);
       var v = $1|0;
-      if (typeof localStorage !== 'undefined') localStorage.setItem(k, v.toString());
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(k, v.toString());
+      }
     }, key, value);
   }
 
