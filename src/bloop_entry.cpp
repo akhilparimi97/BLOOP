@@ -1,13 +1,13 @@
-// src/bloop_entry.cpp
 #include "bloop_entry.h"
-#include "bloop_adapter.h"
 #include "GameManager.h"
+#include "platform.h"
 
 void bloop_setup() {
-    initGameManager();
+  Platform::ClearDisplay();
+  initGameManager();
 }
 
 void bloop_loop() {
-    runGameLoop();
-    display.display(); // flush screen
+  runGameLoop();
+  // The loop draws/presents as needed each frame
 }
