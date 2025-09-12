@@ -1,25 +1,70 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
+<meta charset="utf-8" />
 <title>BLOOP Emulator</title>
 <style>
-  body { background:#111; color:#eee; font:14px/1.4 system-ui, sans-serif; text-align:center; }
-  canvas { image-rendering: pixelated; width:512px; height:256px; border:1px solid #555; margin-top:16px; }
+  :root {
+    --device-red: #c62828;
+    --device-red-dark: #8e0000;
+    --screen-scale: 4; /* 128x64 -> 512x256 */
+  }
+  body {
+    background:#111; color:#eee; font:14px/1.4 system-ui, sans-serif;
+    min-height:100vh; margin:0; display:grid; place-items:center; padding:24px;
+  }
+  .device {
+    background: var(--device-red);
+    border: 2px solid var(--device-red-dark);
+    width: calc(128px * var(--screen-scale) + 48px);
+    padding: 16px;
+    border-radius: 18px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 0 12px rgba(255,255,255,0.12);
+  }
+  .screen-wrap {
+    background: #000; border-radius: 10px; padding: 8px;
+    border: 2px solid #690000;
+  }
+  canvas {
+    image-rendering: pixelated;
+    width: calc(128px * var(--screen-scale));
+    height: calc(64px * var(--screen-scale));
+    display:block;
+    margin: 0 auto;
+    background: #000;
+  }
+  .controls {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .btn {
+    background:#222; color:#eee; border:2px solid #555;
+    border-radius: 12px; padding: 12px 0; font-weight:700; letter-spacing:0.5px;
+    box-shadow: inset 0 -3px 0 rgba(255,255,255,0.06);
+    cursor:pointer; user-select:none;
+    transition: transform .05s ease-in;
+    text-transform: uppercase;
+  }
+  .btn:active { transform: translateY(2px); }
+  .legend { text-align:center; margin-top:10px; opacity:.85; font-size:12px; }
 </style>
 </head>
 <body>
-  <h1>BLOOP – Web Emulator</h1>
-  <p>Boot → Menu → Snake/Pong → Get Ready → Game Over. Exit: hold ← and → together (~1.5s).</p>
-  <ul style="display:inline-block;text-align:left;">
-    <li>A Button: ← Arrow</li>
-    <li>B Button: → Arrow</li>
-    <li>Exit: Hold both ← and →</li>
-  </ul>
-  <br/>
-  <canvas id="screen" width="128" height="64"></canvas>
+  <div class="device" aria-label="BLOOP handheld">
+    <div class="screen-wrap">
+      <canvas id="screen" width="128" height="64" aria-label="game screen"></canvas>
+    </div>
+    <div class="controls">
+      <div class="btn" id="btnA" aria-label="A button">A ◀</div>
+      <div class="btn" id="btnB" aria-label="B button">B ▶</div>
+    </div>
+    <div class="legend">Hold both buttons (A + B) to exit to menu</div>
+  </div>
 
   <script>
+    // --- Framebuffer + draw functions used by WASM ---
     const canvas = document.getElementById('screen');
     const ctx = canvas.getContext('2d', { alpha: false });
     const W = canvas.width, H = canvas.height;
@@ -40,11 +85,13 @@
       ctx.putImageData(img,0,0);
     }
 
-    let buttons = [0,0]; // 0:A (Left), 1:B (Right)
-    function isButtonPressed(pin) { return (buttons[pin|0]|0); }
+    // --- Input state (keyboard + on-screen buttons) ---
+    const buttons = [0,0]; // 0:A (Left), 1:B (Right)
+    function isButtonPressed(pin) { return (buttons[pin|0] | 0); }
 
+    // Keyboard (ignore repeats to avoid “double presses”)
     window.addEventListener('keydown', (e) => {
-      if (e.repeat) return; // ignore repeat to reduce accidental double presses
+      if (e.repeat) return;
       if (e.code === 'ArrowLeft')  { buttons[0] = 1; e.preventDefault(); }
       if (e.code === 'ArrowRight') { buttons[1] = 1; e.preventDefault(); }
     });
@@ -53,7 +100,31 @@
       if (e.code === 'ArrowRight') { buttons[1] = 0; e.preventDefault(); }
     });
 
+    // On-screen buttons (mouse + touch)
+    const btnA = document.getElementById('btnA');
+    const btnB = document.getElementById('btnB');
+    const setA = v => buttons[0] = v ? 1 : 0;
+    const setB = v => buttons[1] = v ? 1 : 0;
+
+    const press = (el, set) => {
+      el.addEventListener('mousedown', () => set(true));
+      el.addEventListener('mouseup',   () => set(false));
+      el.addEventListener('mouseleave',() => set(false));
+      el.addEventListener('touchstart', (e)=>{ e.preventDefault(); set(true); }, {passive:false});
+      el.addEventListener('touchend',   (e)=>{ e.preventDefault(); set(false);}, {passive:false});
+      el.addEventListener('touchcancel',(e)=>{ e.preventDefault(); set(false);}, {passive:false});
+    };
+    press(btnA, setA);
+    press(btnB, setB);
+
+    // Emscripten module
     var Module = { canvas };
+
+    // Expose functions for C++ EM_ASM bridges
+    window.drawPixel     = drawPixel;
+    window.clearDisplay  = clearDisplay;
+    window.updateDisplay = updateDisplay;
+    window.isButtonPressed = isButtonPressed;
   </script>
 
   <script src="bloop.js"></script>
