@@ -1,0 +1,42 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Emscripten
+      uses: mymindstorm/setup-emsdk@v12
+      with:
+        version: 3.1.45
+        actions-cache-folder: 'emsdk-cache'
+    
+    - name: Build WebAssembly
+      run: |
+        cd web
+        make clean
+        make
+        ls -la
+    
+    - name: Copy files for GitHub Pages
+      run: |
+        mkdir -p dist
+        cp web/index.html dist/
+        cp web/bloop.js dist/
+        cp web/bloop.wasm dist/
+        echo "BLOOP Web Emulator deployed at $(date)" > dist/README.md
+    
+    - name: Deploy to GitHub Pages
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./dist
