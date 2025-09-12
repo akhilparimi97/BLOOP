@@ -1,6 +1,8 @@
 #include "SnakeGame.h"
 #include "platform.h"
-#include <cstdlib>
+#include <algorithm>   // <-- add this
+#include <cstdlib>     // (optional)
+
 
 using namespace Platform;
 
@@ -127,3 +129,4 @@ bool stepSnake(int& outScore, bool& exitRequested, bool& gameOver) {
   gameOver = false;
   return true;
 }
+
