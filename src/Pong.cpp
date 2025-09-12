@@ -1,220 +1,131 @@
 #include "Pong.h"
-#include "GameManager.h"
-#include <Arduino.h>
+#include "platform.h"
+using namespace Platform;
 
-// Game constants
-#define PADDLE_HEIGHT 10
-#define PADDLE_WIDTH 2
-#define BALL_SIZE 2
-#define PADDLE_OFFSET 3
-#define PADDLE_SPEED 2
-#define GAME_SPEED 15
-static unsigned long exitHoldStart = 0;
-        
-// Game state
-struct Paddle {
-    int x, y;
-};
+namespace {
+  constexpr int PADDLE_HEIGHT = 10;
+  constexpr int PADDLE_WIDTH  = 2;
+  constexpr int BALL_SIZE     = 2;
+  constexpr int PADDLE_OFFSET = 3;
+  constexpr int PADDLE_SPEED  = 2;
+  constexpr unsigned TICK_MS  = 15;
 
-struct Ball {
-    int x, y;
-    int velX, velY;
-};
+  struct Paddle { int x,y; };
+  struct Ball { int x,y, vx, vy; };
 
-static Paddle player, cpu;
-static Ball ball;
-static int playerScore;
-static bool gameActive;
+  static Paddle player, cpu;
+  static Ball   ball;
+  static int    playerScore = 0;
+  static bool   gameActive  = false;
 
-// ============ GAME LOGIC ============
+  static unsigned long lastTick = 0;
+  static unsigned long exitHoldStart = 0;
+  static bool          inited = false;
 
-static void resetGame() {
-    // Initialize paddles
+  static void resetGame() {
     player.x = SCREEN_WIDTH - PADDLE_WIDTH - PADDLE_OFFSET;
-    player.y = PLAYFIELD_HEIGHT / 2 - PADDLE_HEIGHT / 2;
-    
-    cpu.x = PADDLE_OFFSET;
-    cpu.y = PLAYFIELD_HEIGHT / 2 - PADDLE_HEIGHT / 2;
-
-    // Initialize ball
-    ball.x = SCREEN_WIDTH / 2;
-    ball.y = PLAYFIELD_HEIGHT / 2;
-    ball.velX = 0;
-    ball.velY = 0;
-
+    player.y = STATUS_BAR_HEIGHT + PLAYFIELD_HEIGHT/2 - PADDLE_HEIGHT/2;
+    cpu.x    = PADDLE_OFFSET;
+    cpu.y    = STATUS_BAR_HEIGHT + PLAYFIELD_HEIGHT/2 - PADDLE_HEIGHT/2;
+    ball.x   = SCREEN_WIDTH/2;
+    ball.y   = STATUS_BAR_HEIGHT + PLAYFIELD_HEIGHT/2;
+    ball.vx  = 0; ball.vy = 0;
     playerScore = 0;
-    gameActive = false;
-}
+    gameActive  = false;
+    lastTick    = Millis();
+  }
 
-static void serveBall() {
-    ball.velX = -1;  // Start toward CPU
-    ball.velY = random(0, 2) ? 1 : -1;
+  static void serveBall() {
+    ball.vx = -1;
+    ball.vy = (RandomInt(0,2) == 0) ? 1 : -1;
     gameActive = true;
-}
+  }
 
-static void updateCPU() {
+  static void updateCPU() {
     if (!gameActive) return;
-    
-    int ballCenterY = ball.y + BALL_SIZE / 2;
-    int cpuCenterY = cpu.y + PADDLE_HEIGHT / 2;
-    int cpuSpeed = abs(ball.velX);
-    
-    if (ballCenterY < cpuCenterY) {
-        cpu.y -= cpuSpeed;
-    } else if (ballCenterY > cpuCenterY) {
-        cpu.y += cpuSpeed;
-    }
-    
-    // Constrain CPU paddle
-    if (cpu.y < STATUS_BAR_HEIGHT) {
-        cpu.y = STATUS_BAR_HEIGHT;
-    }
-    if (cpu.y > SCREEN_HEIGHT - PADDLE_HEIGHT) {
-        cpu.y = SCREEN_HEIGHT - PADDLE_HEIGHT;
-    }
-}
+    int bc = ball.y + BALL_SIZE/2;
+    int cc = cpu.y + PADDLE_HEIGHT/2;
+    int speed = std::abs(ball.vx);
+    if (bc < cc) cpu.y -= speed;
+    else if (bc > cc) cpu.y += speed;
+    if (cpu.y < STATUS_BAR_HEIGHT) cpu.y = STATUS_BAR_HEIGHT;
+    if (cpu.y > SCREEN_HEIGHT - PADDLE_HEIGHT) cpu.y = SCREEN_HEIGHT - PADDLE_HEIGHT;
+  }
 
-static bool updateBall() {
+  static bool updateBall() {
     if (!gameActive) return true;
-    
-    ball.x += ball.velX;
-    ball.y += ball.velY;
+    ball.x += ball.vx; ball.y += ball.vy;
 
-    // Bounce off top/bottom
-    if (ball.y <= STATUS_BAR_HEIGHT || ball.y >= SCREEN_HEIGHT - BALL_SIZE) {
-        ball.velY = -ball.velY;
-    }
+    if (ball.y <= STATUS_BAR_HEIGHT || ball.y >= SCREEN_HEIGHT - BALL_SIZE) ball.vy = -ball.vy;
 
-    // CPU paddle collision
+    // CPU collision
     if (ball.x <= cpu.x + PADDLE_WIDTH &&
-        ball.y + BALL_SIZE >= cpu.y && 
-        ball.y <= cpu.y + PADDLE_HEIGHT) {
-        ball.x = cpu.x + PADDLE_WIDTH;
-        ball.velX = -ball.velX;
+        ball.y + BALL_SIZE >= cpu.y && ball.y <= cpu.y + PADDLE_HEIGHT) {
+      ball.x = cpu.x + PADDLE_WIDTH;
+      ball.vx = -ball.vx;
     }
-
-    // Player paddle collision
+    // Player collision
     if (ball.x + BALL_SIZE >= player.x &&
-        ball.y + BALL_SIZE >= player.y && 
-        ball.y <= player.y + PADDLE_HEIGHT) {
-        ball.x = player.x - BALL_SIZE;
-        ball.velX = -ball.velX;
-        playerScore++;
-        drawStatusBar("PONG", playerScore, highScores[GAME_PONG]);
+        ball.y + BALL_SIZE >= player.y && ball.y <= player.y + PADDLE_HEIGHT) {
+      ball.x = player.x - BALL_SIZE;
+      ball.vx = -ball.vx;
+      playerScore++;
+      drawStatusBar("PONG", playerScore, getHighScore(GameID::PONG));
     }
-
-    // Ball out of bounds
-    if (ball.x > SCREEN_WIDTH || ball.x < 0) {
-        return false; // Game over
-    }
-
+    if (ball.x > SCREEN_WIDTH || ball.x < 0) return false;
     return true;
-}
+  }
 
-// ============ INPUT HANDLING ============
-
-static bool handleInput() {
-    InputState input = getInputState();
-    bool moved = false;
-
-    // Exit check
-    if (input.bothPressed) {
-        
-        if (exitHoldStart == 0) {
-            exitHoldStart = millis();
-        } else {
-            float progress = (float)(millis() - exitHoldStart) / EXIT_HOLD_DURATION;
-            if (progress >= 1.0f) {
-                waitForButtonRelease();
-                return false; // Exit game
-            }
-            showExitHoldBar(progress);
-        }
-        delay(50);
-        return true;
-    } else {
-        // Reset exit timer
-        //static unsigned long exitHoldStart = 0;
-        exitHoldStart = 0;
-    }
-
-    // Player movement
-    if (input.buttonA && player.y > STATUS_BAR_HEIGHT + 2) {
-        player.y -= PADDLE_SPEED;
-        moved = true;
-    }
-    if (input.buttonB && player.y < SCREEN_HEIGHT - PADDLE_HEIGHT - 2) {
-        player.y += PADDLE_SPEED;
-        moved = true;
-    }
-
-    // Serve ball on first movement
-    if (!gameActive && moved) {
-        serveBall();
-    }
-
-    return true;
-}
-
-// ============ RENDERING ============
-
-static void drawGame() {
+  static void drawGame() {
     clearPlayfield();
-    drawStatusBar("PONG", playerScore, highScores[GAME_PONG]);
+    drawStatusBar("PONG", playerScore, getHighScore(GameID::PONG));
+    DrawRect(0, STATUS_BAR_HEIGHT, SCREEN_WIDTH, PLAYFIELD_HEIGHT, true);
+    for (int y = STATUS_BAR_HEIGHT; y < SCREEN_HEIGHT; y+=4) DrawPixel(SCREEN_WIDTH/2, y, true);
+    FillRect(cpu.x, cpu.y, PADDLE_WIDTH, PADDLE_HEIGHT, true);
+    FillRect(player.x, player.y, PADDLE_WIDTH, PADDLE_HEIGHT, true);
+    FillRect(ball.x, ball.y, BALL_SIZE, BALL_SIZE, true);
+    Present();
+  }
 
-    // Draw court boundary
-    display.drawRect(0, STATUS_BAR_HEIGHT, SCREEN_WIDTH, PLAYFIELD_HEIGHT, SSD1306_WHITE);
+} // anon
 
-    // Draw center line
-    for (int y = STATUS_BAR_HEIGHT; y < SCREEN_HEIGHT; y += 4) {
-        display.drawPixel(SCREEN_WIDTH / 2, y, SSD1306_WHITE);
-    }
-
-    // Draw paddles
-    display.fillRect(cpu.x, cpu.y, PADDLE_WIDTH, PADDLE_HEIGHT, SSD1306_WHITE);
-    display.fillRect(player.x, player.y, PADDLE_WIDTH, PADDLE_HEIGHT, SSD1306_WHITE);
-
-    // Draw ball
-    display.fillRect(ball.x, ball.y, BALL_SIZE, BALL_SIZE, SSD1306_WHITE);
-
-    display.display();
+void startPong() {
+  inited = true;
+  resetGame();
+  showGetReady("PONG", "A: Up, B: Down");
+  exitHoldStart = 0;
 }
 
-static void showGetReady() {
-    clearPlayfield();
-    drawStatusBar("PONG", 0, highScores[GAME_PONG]);
-    
-    display.setTextSize(1);
-    display.setTextColor(SSD1306_WHITE);
-    display.setCursor(25, STATUS_BAR_HEIGHT + (PLAYFIELD_HEIGHT / 2) - 5);
-    display.println("Move to serve!");
-    display.display();
-}
+bool stepPong(int& outScore, bool& exitRequested, bool& gameOver) {
+  if (!inited) startPong();
 
-// ============ MAIN GAME FUNCTION ============
+  // Input & exit hold
+  InputState in = getInputState();
+  if (in.both) {
+    if (exitHoldStart == 0) exitHoldStart = Millis();
+    float prog = (float)(Millis() - exitHoldStart) / 1500.0f;
+    if (prog >= 1.0f) { exitRequested = true; exitHoldStart = 0; return true; }
+    showExitHoldBar(prog);
+    Delay(50);
+  } else {
+    exitHoldStart = 0;
+  }
 
-int playPong() {
-    resetGame();
-    waitForButtonRelease();
-    showGetReady("PONG", "A: Up, B: Down");
+  // Move player
+  bool moved = false;
+  if (in.buttonA && player.y > STATUS_BAR_HEIGHT + 2) { player.y -= PADDLE_SPEED; moved = true; }
+  if (in.buttonB && player.y < SCREEN_HEIGHT - PADDLE_HEIGHT - 2) { player.y += PADDLE_SPEED; moved = true; }
+  if (!gameActive && moved) serveBall();
 
-    exitHoldStart = 0; // Reset exit timer
+  // Update with tick pacing
+  if (Millis() - lastTick >= TICK_MS) {
+    updateCPU();
+    if (!updateBall()) { gameOver = true; outScore = playerScore; return true; }
+    lastTick = Millis();
+  }
 
-    while (true) {
-        // Handle input (returns false if exit requested)
-        if (!handleInput()) {
-            return playerScore;
-        }
-
-        // Update game objects
-        updateCPU();
-        if (!updateBall()) {
-            showGameOver("PONG", playerScore, highScores[GAME_PONG]);
-            return playerScore;
-        }
-
-        // Render
-        drawGame();
-        delay(GAME_SPEED);
-    }
+  drawGame();
+  outScore = playerScore;
+  gameOver = false;
+  return true;
 }
