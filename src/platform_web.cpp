@@ -18,12 +18,13 @@ extern "C" {
 
 namespace Platform {
 
+  void Init() { /* web: nothing to init */ }
+
   bool ButtonPressed(Button b) { return js_button_pressed(static_cast<int>(b)) != 0; }
   unsigned long Millis()       { return static_cast<unsigned long>(js_now()); }
   void Delay(unsigned ms)      { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
 
-  // <<< Slow the web build to feel like hardware
-  float SpeedScale() { return 4.0f; } // was 1.8 to taste
+  float SpeedScale() { return 3.0f; } // retro slowdown (tune 2.5–4.0)
 
   int RandomInt(int min_inclusive, int max_exclusive) {
     static bool seeded = false;
@@ -34,8 +35,8 @@ namespace Platform {
 
   void ClearDisplay() { js_clear_display(); }
   void Present()      { js_display(); }
-  void DrawPixel(int x,int y,bool on){ if(x<0||y<0||x>=SCREEN_WIDTH||y>=SCREEN_HEIGHT)return; js_draw_pixel(x,y,on?1:0); }
 
+  void DrawPixel(int x,int y,bool on){ if(x<0||y<0||x>=SCREEN_WIDTH||y>=SCREEN_HEIGHT)return; js_draw_pixel(x,y,on?1:0); }
   void DrawRect(int x,int y,int w,int h,bool on){
     for (int i=0;i<w;++i){ DrawPixel(x+i,y,on); DrawPixel(x+i,y+h-1,on); }
     for (int j=0;j<h;++j){ DrawPixel(x,y+j,on); DrawPixel(x+w-1,y+j,on); }
@@ -56,8 +57,10 @@ namespace Platform {
     }
   }
 
+  // 5x7 text rasterizer (unchanged)
   static void DrawChar(int x,int y,char c,int scale,bool on){
     if(c<32||c>127) c='?';
+    extern const uint8_t FONT5x7[96][5];
     const uint8_t* g = FONT5x7[c-32];
     for(int col=0; col<5; ++col){
       uint8_t bits=g[col];
@@ -77,26 +80,22 @@ namespace Platform {
     }
   }
 
+  // Storage via localStorage (split declarations to satisfy EM_ASM parser)
   bool StorageGet(const char* key, int& outVal) {
     int ok = EM_ASM_INT({
-      // Split declarations so the preprocessor doesn't see a comma as an arg separator
       var k = UTF8ToString($0);
       var s = (typeof localStorage !== 'undefined') ? localStorage.getItem(k) : null;
       if (s === null) return 0;
-      // write an int32 back to &outVal
       setValue($1, (parseInt(s)|0), 'i32');
       return 1;
     }, key, &outVal);
     return ok != 0;
   }
-
   void StorageSet(const char* key, int value) {
     EM_ASM({
       var k = UTF8ToString($0);
       var v = $1|0;
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(k, v.toString());
-      }
+      if (typeof localStorage !== 'undefined') localStorage.setItem(k, v.toString());
     }, key, value);
   }
 
