@@ -1,14 +1,13 @@
 #ifndef GAME_MANAGER_H
 #define GAME_MANAGER_H
 
-#ifdef __EMSCRIPTEN__
-#include "bloop_adapter.h"
-extern DisplayShim display;
-#else
+#ifndef __EMSCRIPTEN__
 #include <Adafruit_SSD1306.h>
-extern Adafruit_SSD1306 display;
+#define BUTTON_A 5
+#define BUTTON_B 6
+#else
+#include "bloop_adapter.h"   // brings in DisplayShim + BUTTON_A/B redefs
 #endif
-
 
 // Constants
 #define SCREEN_WIDTH 128
@@ -17,8 +16,6 @@ extern Adafruit_SSD1306 display;
 #define PLAYFIELD_HEIGHT (SCREEN_HEIGHT - STATUS_BAR_HEIGHT)
 #define OLED_RESET -1
 #define OLED_ADDR 0x3C
-#define BUTTON_A 5
-#define BUTTON_B 6
 #define NUM_GAMES 2
 #define DEBOUNCE_DELAY 200
 #define EXIT_HOLD_DURATION 1500
@@ -37,7 +34,12 @@ struct InputState {
     bool exitRequested;
 };
 
-// Global objects
+#ifndef __EMSCRIPTEN__
+extern Adafruit_SSD1306 display;
+#else
+extern DisplayShim display;
+#endif
+
 extern int highScores[NUM_GAMES];
 extern bool justWoke;
 
@@ -59,6 +61,5 @@ bool buttonPressed(int pin);
 void clearPlayfield();
 void showGameOver(const char* gameName, int score, int highScore);
 void showGetReady(const char* gameName, const char* instructions = nullptr);
-
 
 #endif
