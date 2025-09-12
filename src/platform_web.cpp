@@ -1,37 +1,115 @@
-#pragma once
-#include <cstdint>
-#include <cstddef>
+#include "platform.h"
+#include "font5x7.h"
+#include <cstdlib>
+#include <ctime>
+#include <thread>
+#include <chrono>
+#include <cmath>
+#include <cstring>
+#include <emscripten.h>
+
+extern "C" {
+  void   js_draw_pixel(int x, int y, int color);
+  void   js_display();
+  void   js_clear_display();
+  int    js_button_pressed(int pin);
+  double js_now();
+}
 
 namespace Platform {
-  // Screen
-  static constexpr int SCREEN_WIDTH  = 128;
-  static constexpr int SCREEN_HEIGHT = 64;
-  static constexpr int STATUS_BAR_HEIGHT = 16;
-  static constexpr int PLAYFIELD_HEIGHT  = SCREEN_HEIGHT - STATUS_BAR_HEIGHT;
 
-  // Inputs
-  enum Button : int { BTN_A = 0, BTN_B = 1 };
+  bool ButtonPressed(Button b) {
+    return js_button_pressed(static_cast<int>(b)) != 0;
+  }
 
-  // Time/Input
-  bool          ButtonPressed(Button b);
-  unsigned long Millis();
-  void          Delay(unsigned ms);
+  unsigned long Millis() {
+    return static_cast<unsigned long>(js_now());
+  }
 
-  // Random
-  int           RandomInt(int min_inclusive, int max_exclusive);
+  void Delay(unsigned ms) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+  }
 
-  // Display (monochrome)
-  void ClearDisplay();
-  void Present();
-  void DrawPixel(int x, int y, bool on=true);
-  void DrawRect(int x, int y, int w, int h, bool on=true);
-  void FillRect(int x, int y, int w, int h, bool on=true);
-  void DrawLine(int x0, int y0, int x1, int y1, bool on=true);
+  int RandomInt(int min_inclusive, int max_exclusive) {
+    static bool seeded = false;
+    if (!seeded) { std::srand(static_cast<unsigned>(Millis())); seeded = true; }
+    if (max_exclusive <= min_inclusive) return min_inclusive;
+    return min_inclusive + (std::rand() % (max_exclusive - min_inclusive));
+  }
 
-  // Text (5x7), integer scale
-  void DrawText(int x, int y, const char* text, int scale=1, bool on=true);
+  void ClearDisplay() { js_clear_display(); }
+  void Present()      { js_display(); }
 
-  // Persistent storage (web: localStorage)
-  bool StorageGet(const char* key, int& outVal);
-  void StorageSet(const char* key, int value);
-}
+  void DrawPixel(int x, int y, bool on) {
+    if (x < 0 || y < 0 || x >= SCREEN_WIDTH || y >= SCREEN_HEIGHT) return;
+    js_draw_pixel(x, y, on ? 1 : 0);
+  }
+
+  void DrawRect(int x, int y, int w, int h, bool on) {
+    for (int i = 0; i < w; ++i) { DrawPixel(x + i, y, on); DrawPixel(x + i, y + h - 1, on); }
+    for (int j = 0; j < h; ++j) { DrawPixel(x, y + j, on); DrawPixel(x + w - 1, y + j, on); }
+  }
+
+  void FillRect(int x, int y, int w, int h, bool on) {
+    for (int j = 0; j < h; ++j)
+      for (int i = 0; i < w; ++i)
+        DrawPixel(x + i, y + j, on);
+  }
+
+  void DrawLine(int x0, int y0, int x1, int y1, bool on) {
+    int dx = std::abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+    int dy = -std::abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy, e2;
+    while (true) {
+      DrawPixel(x0, y0, on);
+      if (x0 == x1 && y0 == y1) break;
+      e2 = 2 * err;
+      if (e2 >= dy) { err += dy; x0 += sx; }
+      if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+  }
+
+  static void DrawChar(int x, int y, char c, int scale, bool on) {
+    if (c < 32 || c > 127) c = '?';
+    const uint8_t* glyph = FONT5x7[c - 32];
+    for (int col = 0; col < 5; ++col) {
+      uint8_t bits = glyph[col];
+      for (int row = 0; row < 7; ++row) {
+        if (bits & (1 << row)) {
+          for (int dx = 0; dx < scale; ++dx)
+            for (int dy = 0; dy < scale; ++dy)
+              DrawPixel(x + col*scale + dx, y + row*scale + dy, on);
+        }
+      }
+    }
+  }
+
+  void DrawText(int x, int y, const char* text, int scale, bool on) {
+    int cx = x;
+    for (const char* p = text; *p; ++p) {
+      if (*p == '\n') { y += 8 * scale; cx = x; continue; }
+      DrawChar(cx, y, *p, scale, on);
+      cx += 6 * scale;
+    }
+  }
+
+  bool StorageGet(const char* key, int& outVal) {
+    int ok = EM_ASM_INT({
+      var k = UTF8ToString($0);
+      var s = localStorage.getItem(k);
+      if (s === null) return 0;
+      HEAP32[$1>>2] = (parseInt(s)|0);
+      return 1;
+    }, key, &outVal);
+    return ok != 0;
+  }
+
+  void StorageSet(const char* key, int value) {
+    EM_ASM({
+      var k = UTF8ToString($0);
+      var v = $1|0;
+      localStorage.setItem(k, v.toString());
+    }, key, value);
+  }
+
+} // namespace Platform
