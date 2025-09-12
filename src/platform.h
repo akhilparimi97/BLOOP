@@ -9,13 +9,13 @@ namespace Platform {
   static constexpr int STATUS_BAR_HEIGHT = 16;
   static constexpr int PLAYFIELD_HEIGHT  = SCREEN_HEIGHT - STATUS_BAR_HEIGHT;
 
-  // Inputs: A=0, B=1 for Web; on Arduino you can map to pins later.
+  // Inputs
   enum Button : int { BTN_A = 0, BTN_B = 1 };
 
   // Time/Input
-  bool          ButtonPressed(Button b);        // true while held
-  unsigned long Millis();                       // ms since start
-  void          Delay(unsigned ms);             // non-critical sleep (web = blocking)
+  bool          ButtonPressed(Button b);
+  unsigned long Millis();
+  void          Delay(unsigned ms);
 
   // Random
   int           RandomInt(int min_inclusive, int max_exclusive);
@@ -28,6 +28,10 @@ namespace Platform {
   void FillRect(int x, int y, int w, int h, bool on=true);
   void DrawLine(int x0, int y0, int x1, int y1, bool on=true);
 
-  // Text (5x7 bitmap font, integer scale)
+  // Text (5x7), integer scale
   void DrawText(int x, int y, const char* text, int scale=1, bool on=true);
+
+  // Persistent storage (web: localStorage)
+  bool StorageGet(const char* key, int& outVal);
+  void StorageSet(const char* key, int value);
 }
