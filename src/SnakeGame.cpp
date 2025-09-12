@@ -1,8 +1,7 @@
 #include "SnakeGame.h"
 #include "platform.h"
-#include <algorithm>   // <-- add this
-#include <cstdlib>     // (optional)
-
+#include <algorithm>
+#include <cstdlib>
 
 using namespace Platform;
 
@@ -28,6 +27,10 @@ namespace {
 
   static unsigned long exitHoldStart = 0;
   static bool inited = false;
+
+  // Get Ready gating
+  static unsigned long readyUntil = 0;
+  static bool clearedAfterReady = false;
 
   static bool isValid(Dir nd, Dir cd) {
     return !((nd==UP && cd==DOWN) || (nd==DOWN && cd==UP) ||
@@ -79,7 +82,7 @@ namespace {
     if (prevTail.x != -1)
       FillRect(prevTail.x*GRID_SIZE, prevTail.y*GRID_SIZE + STATUS_BAR_HEIGHT, GRID_SIZE, GRID_SIZE, false);
     FillRect(snake[0].x*GRID_SIZE, snake[0].y*GRID_SIZE + STATUS_BAR_HEIGHT, GRID_SIZE, GRID_SIZE, true);
-    FillRect(food.x*GRID_SIZE, food.y*GRID_SIZE + STATUS_BAR_HEIGHT, GRID_SIZE, GRID_SIZE, true);
+    FillRect(food.x*GRID_SIZE,  food.y*GRID_SIZE  + STATUS_BAR_HEIGHT, GRID_SIZE, GRID_SIZE, true);
     Present();
   }
 
@@ -90,20 +93,27 @@ void startSnake() {
   resetSnake();
   showGetReady("SNAKE", "A: Left, B: Right");
   exitHoldStart = 0;
+  readyUntil = Millis() + 1000;  // 1s get-ready
+  clearedAfterReady = false;
 }
 
 bool stepSnake(int& outScore, bool& exitRequested, bool& gameOver) {
   if (!inited) startSnake();
 
+  // Pause during Get Ready
+  if (Millis() < readyUntil) return true;
+  if (!clearedAfterReady) { clearPlayfield(); Present(); clearedAfterReady = true; }
+
   InputState in = getInputState();
 
-  // Hold-to-exit
+  // Hold-to-exit (PAUSES GAME)
   if (in.both) {
     if (exitHoldStart == 0) exitHoldStart = Millis();
     float prog = (float)(Millis() - exitHoldStart) / 1500.0f;
     if (prog >= 1.0f) { exitRequested = true; exitHoldStart = 0; return true; }
     showExitHoldBar(prog);
     Delay(50);
+    return true; // <-- do NOT advance game while holding
   } else {
     exitHoldStart = 0;
   }
@@ -117,7 +127,6 @@ bool stepSnake(int& outScore, bool& exitRequested, bool& gameOver) {
   }
 
   int score = snakeLen - INITIAL_SNAKE_LENGTH;
-  drawSnake(score);
 
   if (Millis() - lastMoveTime > MOVE_DELAY_MS) {
     if (!moveSnake()) { gameOver = true; outScore = score; return true; }
@@ -125,8 +134,8 @@ bool stepSnake(int& outScore, bool& exitRequested, bool& gameOver) {
     safe--; turnedThisFrame = false;
   }
 
+  drawSnake(score);
   outScore = score;
   gameOver = false;
   return true;
 }
-
