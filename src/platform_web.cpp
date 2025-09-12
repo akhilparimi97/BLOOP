@@ -1,3 +1,8 @@
+#ifndef ARDUINO   // <--- add this guard at the very top
+
+// ... entire current contents of platform_web.cpp ...
+
+
 #include "platform.h"
 #include "font5x7.h"
 #include <cstdlib>
@@ -115,3 +120,5 @@ namespace Platform {
   }
 
 } // namespace Platform
+
+#endif // ARDUINO  // <--- add this guard at the very end
