@@ -23,7 +23,7 @@
     const canvas = document.getElementById('screen');
     const ctx = canvas.getContext('2d', { alpha: false });
     const W = canvas.width, H = canvas.height;
-    const fb = new Uint8Array(W*H); // 0/1 per pixel
+    const fb = new Uint8Array(W*H);
 
     function drawPixel(x, y, on) {
       if (x < 0 || y < 0 || x >= W || y >= H) return;
@@ -44,6 +44,7 @@
     function isButtonPressed(pin) { return (buttons[pin|0]|0); }
 
     window.addEventListener('keydown', (e) => {
+      if (e.repeat) return; // ignore repeat to reduce accidental double presses
       if (e.code === 'ArrowLeft')  { buttons[0] = 1; e.preventDefault(); }
       if (e.code === 'ArrowRight') { buttons[1] = 1; e.preventDefault(); }
     });
@@ -52,10 +53,7 @@
       if (e.code === 'ArrowRight') { buttons[1] = 0; e.preventDefault(); }
     });
 
-    // Emscripten module config
-    var Module = {
-      canvas: canvas
-    };
+    var Module = { canvas };
   </script>
 
   <script src="bloop.js"></script>
