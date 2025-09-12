@@ -1,7 +1,14 @@
 #ifndef GAME_MANAGER_H
 #define GAME_MANAGER_H
 
+#ifdef __EMSCRIPTEN__
+#include "bloop_adapter.h"
+extern DisplayShim display;
+#else
 #include <Adafruit_SSD1306.h>
+extern Adafruit_SSD1306 display;
+#endif
+
 
 // Constants
 #define SCREEN_WIDTH 128
@@ -31,7 +38,6 @@ struct InputState {
 };
 
 // Global objects
-extern Adafruit_SSD1306 display;
 extern int highScores[NUM_GAMES];
 extern bool justWoke;
 
@@ -53,5 +59,6 @@ bool buttonPressed(int pin);
 void clearPlayfield();
 void showGameOver(const char* gameName, int score, int highScore);
 void showGetReady(const char* gameName, const char* instructions = nullptr);
+
 
 #endif
