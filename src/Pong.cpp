@@ -9,8 +9,8 @@ namespace {
   constexpr int PADDLE_WIDTH  = 2;
   constexpr int BALL_SIZE     = 2;
   constexpr int PADDLE_OFFSET = 3;
-  constexpr int PADDLE_SPEED  = 2;
-  constexpr unsigned TICK_MS  = 15;
+  constexpr int PADDLE_SPEED_BASE  = 2;     // base; real speed scales down by SpeedScale()
+  constexpr unsigned TICK_MS_BASE  = 15;    // base; real tick slows by SpeedScale()
 
   struct Paddle { int x,y; };
   struct Ball { int x,y, vx, vy; };
@@ -83,32 +83,12 @@ namespace {
   }
 
   static void drawDashedCourt() {
-    // dashed rectangle border
-    const int dash = 2, gap = 2;
-
-    // top
-    for (int x=0; x<SCREEN_WIDTH; x += dash+gap)
-      for (int i=0; i<dash && x+i<SCREEN_WIDTH; ++i)
-        DrawPixel(x+i, STATUS_BAR_HEIGHT, true);
-
-    // bottom
-    for (int x=0; x<SCREEN_WIDTH; x += dash+gap)
-      for (int i=0; i<dash && x+i<SCREEN_WIDTH; ++i)
-        DrawPixel(x+i, SCREEN_HEIGHT-1, true);
-
-    // left
-    for (int y=STATUS_BAR_HEIGHT; y<SCREEN_HEIGHT; y += dash+gap)
-      for (int i=0; i<dash && y+i<SCREEN_HEIGHT; ++i)
-        DrawPixel(0, y+i, true);
-
-    // right
-    for (int y=STATUS_BAR_HEIGHT; y<SCREEN_HEIGHT; y += dash+gap)
-      for (int i=0; i<dash && y+i<SCREEN_HEIGHT; ++i)
-        DrawPixel(SCREEN_WIDTH-1, y+i, true);
-
-    // center dotted line
-    for (int y = STATUS_BAR_HEIGHT; y < SCREEN_HEIGHT; y += 4)
-      DrawPixel(SCREEN_WIDTH/2, y, true);
+    const int dash=2, gap=2;
+    for (int x=0; x<SCREEN_WIDTH; x+=dash+gap)
+      for (int i=0; i<dash && x+i<SCREEN_WIDTH; ++i){ DrawPixel(x+i, STATUS_BAR_HEIGHT, true); DrawPixel(x+i, SCREEN_HEIGHT-1, true); }
+    for (int y=STATUS_BAR_HEIGHT; y<SCREEN_HEIGHT; y+=dash+gap)
+      for (int i=0; i<dash && y+i<SCREEN_HEIGHT; ++i){ DrawPixel(0, y+i, true); DrawPixel(SCREEN_WIDTH-1, y+i, true); }
+    for (int y = STATUS_BAR_HEIGHT; y < SCREEN_HEIGHT; y += 4) DrawPixel(SCREEN_WIDTH/2, y, true);
   }
 
   static void drawGame() {
@@ -148,19 +128,21 @@ bool stepPong(int& outScore, bool& exitRequested, bool& gameOver) {
     if (prog >= 1.0f) { exitRequested = true; exitHoldStart = 0; return true; }
     showExitHoldBar(prog);
     Delay(50);
-    return true; // <-- pause gameplay while holding
+    return true;
   } else {
     exitHoldStart = 0;
   }
 
-  // Move player
+  // Move player (scale paddle speed down on web)
+  int paddleSpeed = std::max(1, (int)(PADDLE_SPEED_BASE / SpeedScale()));
   bool moved = false;
-  if (in.buttonA && player.y > STATUS_BAR_HEIGHT + 2) { player.y -= PADDLE_SPEED; moved = true; }
-  if (in.buttonB && player.y < SCREEN_HEIGHT - PADDLE_HEIGHT - 2) { player.y += PADDLE_SPEED; moved = true; }
+  if (in.buttonA && player.y > STATUS_BAR_HEIGHT + 2) { player.y -= paddleSpeed; moved = true; }
+  if (in.buttonB && player.y < SCREEN_HEIGHT - PADDLE_HEIGHT - 2) { player.y += paddleSpeed; moved = true; }
   if (!gameActive && moved) serveBall();
 
-  // Tick update
-  if (Millis() - lastTick >= TICK_MS) {
+  // Tick update (scaled slower on web)
+  const unsigned tickMs = (unsigned)(TICK_MS_BASE * SpeedScale());
+  if (Millis() - lastTick >= tickMs) {
     updateCPU();
     if (!updateBall()) { gameOver = true; outScore = playerScore; return true; }
     lastTick = Millis();
