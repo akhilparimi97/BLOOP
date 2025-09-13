@@ -33,7 +33,7 @@ namespace Platform {
   }
 
   // Reduce speed scaling for smoother web gameplay
-  float SpeedScale() { return 1.5f; }  // Reduced from 3.0f
+  float SpeedScale() { return 1.0f; }  // Reduced from 3.0f
 
   int RandomInt(int min_inclusive, int max_exclusive) {
     static bool seeded = false;
