@@ -1,9 +1,9 @@
 #include "bloop_entry.h"
 #include "GameManager.h"
-#include "platform.h"
+// Remove "platform.h" include - it's included by GameManager.h
 
 void bloop_setup() {
-  Platform::Init();        // <— HW: init display & pins; Web: no-op
+  Platform::Init();
   Platform::ClearDisplay();
   initGameManager();
 }

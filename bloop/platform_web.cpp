@@ -1,7 +1,4 @@
-#ifndef ARDUINO   // <--- add this guard at the very top
-
-// ... entire current contents of platform_web.cpp ...
-
+#ifndef ARDUINO
 
 #include "platform.h"
 #include "font5x7.h"
@@ -27,10 +24,16 @@ namespace Platform {
 
   bool ButtonPressed(Button b) { return js_button_pressed(static_cast<int>(b)) != 0; }
   unsigned long Millis()       { return static_cast<unsigned long>(js_now()); }
-  void Delay(unsigned ms)      { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
+  
+  // Non-blocking delay for web - just sleep the thread briefly
+  void Delay(unsigned ms) { 
+    if (ms > 0) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(ms)); 
+    }
+  }
 
-  // Slow web to retro vibe (increase for slower gameplay)
-  float SpeedScale() { return 3.0f; }
+  // Reduce speed scaling for smoother web gameplay
+  float SpeedScale() { return 1.5f; }  // Reduced from 3.0f
 
   int RandomInt(int min_inclusive, int max_exclusive) {
     static bool seeded = false;
@@ -48,8 +51,14 @@ namespace Platform {
   }
 
   void DrawRect(int x,int y,int w,int h,bool on){
-    for (int i=0;i<w;++i){ DrawPixel(x+i,y,on); DrawPixel(x+i,y+h-1,on); }
-    for (int j=0;j<h;++j){ DrawPixel(x,y+j,on); DrawPixel(x+w-1,y+j,on); }
+    for (int i=0;i<w;++i){ 
+      DrawPixel(x+i,y,on); 
+      if (h > 1) DrawPixel(x+i,y+h-1,on); 
+    }
+    for (int j=0;j<h;++j){ 
+      DrawPixel(x,y+j,on); 
+      if (w > 1) DrawPixel(x+w-1,y+j,on); 
+    }
   }
 
   void FillRect(int x,int y,int w,int h,bool on){
@@ -74,7 +83,6 @@ namespace Platform {
   // 5x7 text rasterizer
   static void DrawChar(int x,int y,char c,int scale,bool on){
     if(c<32||c>127) c='?';
-    // IMPORTANT: refer to the global-scope font; do NOT declare extern inside this namespace.
     const uint8_t* g = ::FONT5x7[c-32];
     for(int col=0; col<5; ++col){
       uint8_t bits=g[col];
@@ -97,14 +105,22 @@ namespace Platform {
     }
   }
 
-  // Storage via localStorage (split declarations so EM_ASM parser doesn't misread commas)
+  // Storage via localStorage with better error handling
   bool StorageGet(const char* key, int& outVal) {
     int ok = EM_ASM_INT({
       var k = UTF8ToString($0);
-      var s = (typeof localStorage !== 'undefined') ? localStorage.getItem(k) : null;
-      if (s === null) return 0;
-      setValue($1, (parseInt(s)|0), 'i32');
-      return 1;
+      try {
+        if (typeof localStorage === 'undefined') return 0;
+        var s = localStorage.getItem(k);
+        if (s === null || s === undefined) return 0;
+        var val = parseInt(s, 10);
+        if (isNaN(val)) return 0;
+        setValue($1, val, 'i32');
+        return 1;
+      } catch(e) {
+        console.warn('Storage error:', e);
+        return 0;
+      }
     }, key, &outVal);
     return ok != 0;
   }
@@ -113,12 +129,16 @@ namespace Platform {
     EM_ASM({
       var k = UTF8ToString($0);
       var v = $1|0;
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(k, v.toString());
+      try {
+        if (typeof localStorage !== 'undefined' && v >= 0) {
+          localStorage.setItem(k, v.toString());
+        }
+      } catch(e) {
+        console.warn('Storage save error:', e);
       }
     }, key, value);
   }
 
 } // namespace Platform
 
-#endif // ARDUINO  // <--- add this guard at the very end
+#endif // ARDUINO

@@ -48,6 +48,11 @@
     text-transform: uppercase;
   }
   .btn:active { transform: translateY(2px); }
+  .btn.pressed { 
+    background: #444; 
+    box-shadow: inset 0 2px 0 rgba(0,0,0,0.3);
+    transform: translateY(2px); 
+  }
   .legend { text-align:center; margin-top:10px; opacity:.85; font-size:12px; }
 </style>
 </head>
@@ -74,7 +79,13 @@
       if (x < 0 || y < 0 || x >= W || y >= H) return;
       fb[y*W + x] = on ? 1 : 0;
     }
-    function clearDisplay() { fb.fill(0); ctx.fillStyle = '#000'; ctx.fillRect(0,0,W,H); }
+    
+    function clearDisplay() { 
+      fb.fill(0); 
+      ctx.fillStyle = '#000'; 
+      ctx.fillRect(0,0,W,H); 
+    }
+    
     function updateDisplay() {
       const img = ctx.getImageData(0,0,W,H);
       const d = img.data;
@@ -85,40 +96,124 @@
       ctx.putImageData(img,0,0);
     }
 
-    // --- Input state (keyboard + on-screen buttons) ---
+    // --- Enhanced input state management ---
     const buttons = [0,0]; // 0:A (Left), 1:B (Right)
-    function isButtonPressed(pin) { return (buttons[pin|0] | 0); }
+    let keyboardButtonStates = [false, false];
+    let mouseButtonStates = [false, false];
+    
+    function isButtonPressed(pin) { 
+      return (buttons[pin|0] | 0); 
+    }
+    
+    function updateButtonState(index, pressed) {
+      buttons[index] = pressed ? 1 : 0;
+      const btn = index === 0 ? document.getElementById('btnA') : document.getElementById('btnB');
+      if (pressed) {
+        btn.classList.add('pressed');
+      } else {
+        btn.classList.remove('pressed');
+      }
+    }
 
-    // Keyboard (ignore repeats to avoid “double presses”)
+    // Keyboard handling with proper debouncing
+    let keyRepeatBlocker = {};
+    
     window.addEventListener('keydown', (e) => {
-      if (e.repeat) return;
-      if (e.code === 'ArrowLeft')  { buttons[0] = 1; e.preventDefault(); }
-      if (e.code === 'ArrowRight') { buttons[1] = 1; e.preventDefault(); }
+      if (keyRepeatBlocker[e.code]) return; // Block repeats
+      keyRepeatBlocker[e.code] = true;
+      
+      if (e.code === 'ArrowLeft') { 
+        keyboardButtonStates[0] = true;
+        updateButtonState(0, true);
+        e.preventDefault(); 
+      }
+      if (e.code === 'ArrowRight') { 
+        keyboardButtonStates[1] = true;
+        updateButtonState(1, true);
+        e.preventDefault(); 
+      }
     });
+    
     window.addEventListener('keyup', (e) => {
-      if (e.code === 'ArrowLeft')  { buttons[0] = 0; e.preventDefault(); }
-      if (e.code === 'ArrowRight') { buttons[1] = 0; e.preventDefault(); }
+      keyRepeatBlocker[e.code] = false;
+      
+      if (e.code === 'ArrowLeft') { 
+        keyboardButtonStates[0] = false;
+        if (!mouseButtonStates[0]) updateButtonState(0, false);
+        e.preventDefault(); 
+      }
+      if (e.code === 'ArrowRight') { 
+        keyboardButtonStates[1] = false;
+        if (!mouseButtonStates[1]) updateButtonState(1, false);
+        e.preventDefault(); 
+      }
     });
 
-    // On-screen buttons (mouse + touch)
+    // Enhanced on-screen button handling
     const btnA = document.getElementById('btnA');
     const btnB = document.getElementById('btnB');
-    const setA = v => buttons[0] = v ? 1 : 0;
-    const setB = v => buttons[1] = v ? 1 : 0;
 
-    const press = (el, set) => {
-      el.addEventListener('mousedown', () => set(true));
-      el.addEventListener('mouseup',   () => set(false));
-      el.addEventListener('mouseleave',() => set(false));
-      el.addEventListener('touchstart', (e)=>{ e.preventDefault(); set(true); }, {passive:false});
-      el.addEventListener('touchend',   (e)=>{ e.preventDefault(); set(false);}, {passive:false});
-      el.addEventListener('touchcancel',(e)=>{ e.preventDefault(); set(false);}, {passive:false});
+    function setupButton(element, index) {
+      function setPressed(pressed) {
+        mouseButtonStates[index] = pressed;
+        if (pressed || !keyboardButtonStates[index]) {
+          updateButtonState(index, pressed || keyboardButtonStates[index]);
+        }
+      }
+
+      // Mouse events
+      element.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        setPressed(true);
+      });
+      
+      element.addEventListener('mouseup', (e) => {
+        e.preventDefault();
+        setPressed(false);
+      });
+      
+      element.addEventListener('mouseleave', (e) => {
+        e.preventDefault();
+        setPressed(false);
+      });
+
+      // Touch events with better handling
+      element.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        setPressed(true);
+      }, { passive: false });
+      
+      element.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        setPressed(false);
+      }, { passive: false });
+      
+      element.addEventListener('touchcancel', (e) => {
+        e.preventDefault();
+        setPressed(false);
+      }, { passive: false });
+      
+      // Prevent context menu
+      element.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+      });
+    }
+
+    setupButton(btnA, 0);
+    setupButton(btnB, 1);
+
+    // Prevent page scrolling on touch
+    document.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+    }, { passive: false });
+
+    // Emscripten module configuration
+    var Module = { 
+      canvas,
+      onRuntimeInitialized: function() {
+        console.log('BLOOP Emulator loaded successfully!');
+      }
     };
-    press(btnA, setA);
-    press(btnB, setB);
-
-    // Emscripten module
-    var Module = { canvas };
 
     // Expose functions for C++ EM_ASM bridges
     window.drawPixel     = drawPixel;

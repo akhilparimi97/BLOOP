@@ -1,6 +1,6 @@
 #include <emscripten.h>
 #include <emscripten/html5.h>
-#include "../src/bloop_entry.h"
+#include "../bloop/bloop_entry.h"
 
 // Global game loop function
 void main_loop() {

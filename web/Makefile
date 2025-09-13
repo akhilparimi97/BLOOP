@@ -3,11 +3,11 @@ CXXFLAGS = -O2 -std=c++17 -s WASM=1
 
 SRCS = \
   main.cpp \
-  ../src/bloop_entry.cpp \
-  ../src/platform_web.cpp \
-  ../src/GameManager.cpp \
-  ../src/SnakeGame.cpp \
-  ../src/Pong.cpp
+  ../bloop/bloop_entry.cpp \
+  ../bloop/platform_web.cpp \
+  ../bloop/GameManager.cpp \
+  ../bloop/SnakeGame.cpp \
+  ../bloop/Pong.cpp
 
 OUT = bloop.js
 
