@@ -1,227 +1,615 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8" />
-<title>BLOOP Emulator</title>
-<style>
-  :root {
-    --device-red: #c62828;
-    --device-red-dark: #8e0000;
-    --screen-scale: 4; /* 128x64 -> 512x256 */
-  }
-  body {
-    background:#111; color:#eee; font:14px/1.4 system-ui, sans-serif;
-    min-height:100vh; margin:0; display:grid; place-items:center; padding:24px;
-  }
-  .device {
-    background: var(--device-red);
-    border: 2px solid var(--device-red-dark);
-    width: calc(128px * var(--screen-scale) + 48px);
-    padding: 16px;
-    border-radius: 18px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 0 12px rgba(255,255,255,0.12);
-  }
-  .screen-wrap {
-    background: #000; border-radius: 10px; padding: 8px;
-    border: 2px solid #690000;
-  }
-  canvas {
-    image-rendering: pixelated;
-    width: calc(128px * var(--screen-scale));
-    height: calc(64px * var(--screen-scale));
-    display:block;
-    margin: 0 auto;
-    background: #000;
-  }
-  .controls {
-    margin-top: 14px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-  .btn {
-    background:#222; color:#eee; border:2px solid #555;
-    border-radius: 12px; padding: 12px 0; font-weight:700; letter-spacing:0.5px;
-    box-shadow: inset 0 -3px 0 rgba(255,255,255,0.06);
-    cursor:pointer; user-select:none;
-    transition: transform .05s ease-in;
-    text-transform: uppercase;
-  }
-  .btn:active { transform: translateY(2px); }
-  .btn.pressed { 
-    background: #444; 
-    box-shadow: inset 0 2px 0 rgba(0,0,0,0.3);
-    transform: translateY(2px); 
-  }
-  .legend { text-align:center; margin-top:10px; opacity:.85; font-size:12px; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="BLOOP - A retro-style Arduino game running in your browser. Cross-platform obstacle-avoidance game with classic arcade vibes.">
+    <meta name="keywords" content="Arduino, game, retro, arcade, WebAssembly, ESP32, OLED">
+    <meta name="author" content="Akhil Parimi">
+    <title>BLOOP - Arduino Game Web Emulator</title>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary-bg: #0a0a0a;
+            --secondary-bg: #1a1a2e;
+            --card-bg: #2a2a3a;
+            --accent-green: #00ff00;
+            --accent-blue: #00ffff;
+            --text-primary: #ffffff;
+            --text-secondary: #cccccc;
+            --text-muted: #888888;
+            --border-color: #333333;
+            --success: #44ff44;
+            --warning: #ffff00;
+            --error: #ff4444;
+            --shadow: rgba(0, 0, 0, 0.3);
+            --glow: rgba(0, 255, 0, 0.2);
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, var(--primary-bg), var(--secondary-bg));
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* Header */
+        .header {
+            padding: 2rem 0;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .logo {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 3.5rem;
+            font-weight: 600;
+            color: var(--accent-green);
+            text-shadow: 0 0 20px var(--accent-green);
+            margin-bottom: 0.5rem;
+            animation: glow 3s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { text-shadow: 0 0 20px var(--accent-green), 0 0 40px var(--accent-green); }
+            to { text-shadow: 0 0 30px var(--accent-green), 0 0 60px var(--accent-green); }
+        }
+        
+        .subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            font-weight: 300;
+        }
+        
+        .description {
+            margin-top: 1rem;
+            color: var(--text-muted);
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        /* Main Content */
+        .main-content {
+            padding: 3rem 0;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 3rem;
+            align-items: start;
+        }
+        
+        /* Game Section */
+        .game-section {
+            background: linear-gradient(145deg, var(--card-bg), #1a1a2a);
+            border-radius: 20px;
+            padding: 2rem;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 30px var(--shadow);
+        }
+        
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .game-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--accent-green);
+        }
+        
+        .status-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .status-loading {
+            background: rgba(255, 255, 0, 0.1);
+            color: var(--warning);
+            border: 1px solid var(--warning);
+            animation: pulse 2s infinite;
+        }
+        
+        .status-ready {
+            background: rgba(68, 255, 68, 0.1);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+        
+        .status-error {
+            background: rgba(255, 68, 68, 0.1);
+            color: var(--error);
+            border: 1px solid var(--error);
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .canvas-container {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            margin: 1.5rem 0;
+        }
+        
+        canvas {
+            border: 2px solid var(--accent-green);
+            border-radius: 12px;
+            background: #000000;
+            image-rendering: pixelated;
+            box-shadow: 0 0 30px var(--glow), 0 10px 20px var(--shadow);
+            transition: box-shadow 0.3s ease;
+        }
+        
+        canvas:hover {
+            box-shadow: 0 0 40px var(--glow), 0 15px 30px var(--shadow);
+        }
+        
+        /* Controls Section */
+        .controls-section {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+        
+        .card {
+            background: linear-gradient(145deg, var(--card-bg), #222);
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 5px 15px var(--shadow);
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+        
+        .card-icon {
+            font-size: 1.25rem;
+        }
+        
+        .card-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--accent-blue);
+        }
+        
+        .controls-grid {
+            display: grid;
+            gap: 0.75rem;
+        }
+        
+        .control-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .control-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .key-combo {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .key {
+            padding: 0.25rem 0.75rem;
+            background: linear-gradient(145deg, #555, #333);
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            font-weight: 500;
+            border: 1px solid #666;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Info Section */
+        .info-list {
+            list-style: none;
+        }
+        
+        .info-list li {
+            padding: 0.5rem 0;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .info-list li:before {
+            content: "▶";
+            color: var(--accent-green);
+            margin-right: 0.5rem;
+        }
+        
+        /* Footer */
+        .footer {
+            padding: 2rem 0;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+        }
+        
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 1rem;
+        }
+        
+        .footer-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: color 0.3s ease;
+            font-size: 0.9rem;
+        }
+        
+        .footer-link:hover {
+            color: var(--accent-green);
+        }
+        
+        .footer-text {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+            
+            .logo {
+                font-size: 2.5rem;
+            }
+            
+            canvas {
+                width: 100%;
+                max-width: 400px;
+                height: auto;
+            }
+            
+            .game-header {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .footer-links {
+                flex-direction: column;
+                gap: 1rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 15px;
+            }
+            
+            .logo {
+                font-size: 2rem;
+            }
+            
+            .game-section, .card {
+                padding: 1.25rem;
+            }
+        }
+        
+        /* Loading Animation */
+        .loading-dots::after {
+            content: '';
+            animation: loadingDots 2s infinite;
+        }
+        
+        @keyframes loadingDots {
+            0%, 20% { content: ''; }
+            40% { content: '.'; }
+            60% { content: '..'; }
+            80%, 100% { content: '...'; }
+        }
+    </style>
 </head>
 <body>
-  <div class="device" aria-label="BLOOP handheld">
-    <div class="screen-wrap">
-      <canvas id="screen" width="128" height="64" aria-label="game screen"></canvas>
-    </div>
-    <div class="controls">
-      <div class="btn" id="btnA" aria-label="A button">A ◀</div>
-      <div class="btn" id="btnB" aria-label="B button">B ▶</div>
-    </div>
-    <div class="legend">Hold both buttons (A + B) to exit to menu</div>
-  </div>
+    <header class="header">
+        <div class="container">
+            <h1 class="logo">BLOOP</h1>
+            <p class="subtitle">Arduino Game · Web Emulator</p>
+            <p class="description">
+                A retro-style obstacle-avoidance game that runs on both Arduino hardware and in web browsers. 
+                Experience classic arcade gaming with modern cross-platform compatibility.
+            </p>
+        </div>
+    </header>
 
-  <script>
-    // --- Framebuffer + draw functions used by WASM ---
-    const canvas = document.getElementById('screen');
-    const ctx = canvas.getContext('2d', { alpha: false });
-    const W = canvas.width, H = canvas.height;
-    const fb = new Uint8Array(W*H);
+    <main class="main-content">
+        <div class="container">
+            <div class="grid">
+                <section class="game-section">
+                    <header class="game-header">
+                        <h2 class="game-title">Game Display</h2>
+                        <div id="status" class="status-badge status-loading">
+                            <span>🎮</span>
+                            <span class="loading-dots">Loading game engine</span>
+                        </div>
+                    </header>
+                    
+                    <div class="canvas-container">
+                        <canvas id="gameCanvas" width="512" height="256"></canvas>
+                    </div>
+                </section>
+                
+                <aside class="controls-section">
+                    <div class="card">
+                        <header class="card-header">
+                            <span class="card-icon">🎮</span>
+                            <h3 class="card-title">Controls</h3>
+                        </header>
+                        <div class="controls-grid">
+                            <div class="control-item">
+                                <span class="control-label">Move Left</span>
+                                <div class="key-combo">
+                                    <kbd class="key">←</kbd>
+                                </div>
+                            </div>
+                            <div class="control-item">
+                                <span class="control-label">Move Right</span>
+                                <div class="key-combo">
+                                    <kbd class="key">→</kbd>
+                                </div>
+                            </div>
+                            <div class="control-item">
+                                <span class="control-label">Pause</span>
+                                <div class="key-combo">
+                                    <kbd class="key">←</kbd>
+                                    <span>+</span>
+                                    <kbd class="key">→</kbd>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                   </div>
+                </aside>
+            </div>
+        </div>
+    </main>
 
-    function drawPixel(x, y, on) {
-      if (x < 0 || y < 0 || x >= W || y >= H) return;
-      fb[y*W + x] = on ? 1 : 0;
-    }
-    
-    function clearDisplay() { 
-      fb.fill(0); 
-      ctx.fillStyle = '#000'; 
-      ctx.fillRect(0,0,W,H); 
-    }
-    
-    function updateDisplay() {
-      const img = ctx.getImageData(0,0,W,H);
-      const d = img.data;
-      for (let i=0, p=0; i<fb.length; ++i, p+=4) {
-        const v = fb[i] ? 255 : 0;
-        d[p]=d[p+1]=d[p+2]=v; d[p+3]=255;
-      }
-      ctx.putImageData(img,0,0);
-    }
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-links">
+                <a href="https://github.com/akhilparimi97/BLOOP" class="footer-link">
+                    <span>💻</span>
+                    View Source Code
+                </a>
+                <a href="https://github.com/akhilparimi97/BLOOP#arduino-setup" class="footer-link">
+                    <span>🔧</span>
+                    Arduino Setup Guide
+                </a>
+                <a href="https://github.com/akhilparimi97/BLOOP/issues" class="footer-link">
+                    <span>🐛</span>
+                    Report Issues
+                </a>
+            </div>
+            <p class="footer-text">
+                Built with ❤️ using Arduino, C++, and WebAssembly
+            </p>
+        </div>
+    </footer>
 
-    // --- Enhanced input state management ---
-    const buttons = [0,0]; // 0:A (Left), 1:B (Right)
-    let keyboardButtonStates = [false, false];
-    let mouseButtonStates = [false, false];
-    
-    function isButtonPressed(pin) { 
-      return (buttons[pin|0] | 0); 
-    }
-    
-    function updateButtonState(index, pressed) {
-      buttons[index] = pressed ? 1 : 0;
-      const btn = index === 0 ? document.getElementById('btnA') : document.getElementById('btnB');
-      if (pressed) {
-        btn.classList.add('pressed');
-      } else {
-        btn.classList.remove('pressed');
-      }
-    }
-
-    // Keyboard handling with proper debouncing
-    let keyRepeatBlocker = {};
-    
-    window.addEventListener('keydown', (e) => {
-      if (keyRepeatBlocker[e.code]) return; // Block repeats
-      keyRepeatBlocker[e.code] = true;
-      
-      if (e.code === 'ArrowLeft') { 
-        keyboardButtonStates[0] = true;
-        updateButtonState(0, true);
-        e.preventDefault(); 
-      }
-      if (e.code === 'ArrowRight') { 
-        keyboardButtonStates[1] = true;
-        updateButtonState(1, true);
-        e.preventDefault(); 
-      }
-    });
-    
-    window.addEventListener('keyup', (e) => {
-      keyRepeatBlocker[e.code] = false;
-      
-      if (e.code === 'ArrowLeft') { 
-        keyboardButtonStates[0] = false;
-        if (!mouseButtonStates[0]) updateButtonState(0, false);
-        e.preventDefault(); 
-      }
-      if (e.code === 'ArrowRight') { 
-        keyboardButtonStates[1] = false;
-        if (!mouseButtonStates[1]) updateButtonState(1, false);
-        e.preventDefault(); 
-      }
-    });
-
-    // Enhanced on-screen button handling
-    const btnA = document.getElementById('btnA');
-    const btnB = document.getElementById('btnB');
-
-    function setupButton(element, index) {
-      function setPressed(pressed) {
-        mouseButtonStates[index] = pressed;
-        if (pressed || !keyboardButtonStates[index]) {
-          updateButtonState(index, pressed || keyboardButtonStates[index]);
+    <script>
+        // Game state management
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusElement = document.getElementById('status');
+        
+        let gameState = {
+            loaded: false,
+            buttons: { 5: false, 6: false },
+            pixelBuffer: new Array(128 * 64).fill(0)
+        };
+        
+        // Display configuration
+        const DISPLAY_CONFIG = {
+            width: 128,
+            height: 64,
+            scaleX: canvas.width / 128,
+            scaleY: canvas.height / 64
+        };
+        
+        // Status management
+        function updateStatus(message, type = 'loading') {
+            const icons = { loading: '🎮', ready: '✅', error: '❌' };
+            const classes = { loading: 'status-loading', ready: 'status-ready', error: 'status-error' };
+            
+            statusElement.innerHTML = `<span>${icons[type]}</span><span>${message}</span>`;
+            statusElement.className = `status-badge ${classes[type]}`;
         }
-      }
-
-      // Mouse events
-      element.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        setPressed(true);
-      });
-      
-      element.addEventListener('mouseup', (e) => {
-        e.preventDefault();
-        setPressed(false);
-      });
-      
-      element.addEventListener('mouseleave', (e) => {
-        e.preventDefault();
-        setPressed(false);
-      });
-
-      // Touch events with better handling
-      element.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        setPressed(true);
-      }, { passive: false });
-      
-      element.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        setPressed(false);
-      }, { passive: false });
-      
-      element.addEventListener('touchcancel', (e) => {
-        e.preventDefault();
-        setPressed(false);
-      }, { passive: false });
-      
-      // Prevent context menu
-      element.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-      });
-    }
-
-    setupButton(btnA, 0);
-    setupButton(btnB, 1);
-
-    // Prevent page scrolling on touch
-    document.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-    }, { passive: false });
-
-    // Emscripten module configuration
-    var Module = { 
-      canvas,
-      onRuntimeInitialized: function() {
-        console.log('BLOOP Emulator loaded successfully!');
-      }
-    };
-
-    // Expose functions for C++ EM_ASM bridges
-    window.drawPixel     = drawPixel;
-    window.clearDisplay  = clearDisplay;
-    window.updateDisplay = updateDisplay;
-    window.isButtonPressed = isButtonPressed;
-  </script>
-
-  <script src="bloop.js"></script>
+        
+        // Canvas initialization
+        function initializeCanvas() {
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Subtle loading pattern
+            ctx.fillStyle = '#001100';
+            for (let x = 0; x < canvas.width; x += 8) {
+                for (let y = 0; y < canvas.height; y += 8) {
+                    if ((x + y) % 16 === 0) {
+                        ctx.fillRect(x, y, 2, 2);
+                    }
+                }
+            }
+        }
+        
+        // Input handling with visual feedback
+        function handleKeyPress(key, pressed) {
+            const keyMap = { 'ArrowLeft': 5, 'ArrowRight': 6 };
+            if (keyMap[key]) {
+                gameState.buttons[keyMap[key]] = pressed;
+                
+                if (pressed && gameState.loaded) {
+                    // Visual feedback
+                    const colors = { 5: 'rgba(255,0,0,0.3)', 6: 'rgba(0,0,255,0.3)' };
+                    canvas.style.boxShadow = `0 0 30px ${colors[keyMap[key]]}, 0 10px 20px var(--shadow)`;
+                    setTimeout(() => {
+                        canvas.style.boxShadow = '0 0 30px var(--glow), 0 10px 20px var(--shadow)';
+                    }, 150);
+                }
+            }
+        }
+        
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            if (['ArrowLeft', 'ArrowRight'].includes(e.code)) {
+                e.preventDefault();
+                handleKeyPress(e.code, true);
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            if (['ArrowLeft', 'ArrowRight'].includes(e.code)) {
+                e.preventDefault();
+                handleKeyPress(e.code, false);
+            }
+        });
+        
+        // Game bridge functions
+        window.drawPixel = function(x, y, color) {
+            if (x >= 0 && x < DISPLAY_CONFIG.width && y >= 0 && y < DISPLAY_CONFIG.height) {
+                gameState.pixelBuffer[y * DISPLAY_CONFIG.width + x] = color;
+            }
+        };
+        
+        window.updateDisplay = function() {
+            // Clear canvas
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Render pixels with enhanced visual effects
+            for (let y = 0; y < DISPLAY_CONFIG.height; y++) {
+                for (let x = 0; x < DISPLAY_CONFIG.width; x++) {
+                    if (gameState.pixelBuffer[y * DISPLAY_CONFIG.width + x]) {
+                        const pixelX = Math.floor(x * DISPLAY_CONFIG.scaleX);
+                        const pixelY = Math.floor(y * DISPLAY_CONFIG.scaleY);
+                        const pixelW = Math.ceil(DISPLAY_CONFIG.scaleX);
+                        const pixelH = Math.ceil(DISPLAY_CONFIG.scaleY);
+                        
+                        // Main pixel
+                        ctx.fillStyle = '#00ff00';
+                        ctx.fillRect(pixelX, pixelY, pixelW, pixelH);
+                        
+                        // Subtle glow effect for larger pixels
+                        if (pixelW > 3 && pixelH > 3) {
+                            ctx.fillStyle = 'rgba(0,255,0,0.2)';
+                            ctx.fillRect(pixelX - 1, pixelY - 1, pixelW + 2, pixelH + 2);
+                        }
+                    }
+                }
+            }
+        };
+        
+        window.clearDisplay = function() {
+            gameState.pixelBuffer.fill(0);
+        };
+        
+        window.isButtonPressed = function(pin) {
+            return gameState.buttons[pin] ? 1 : 0;
+        };
+        
+        // Game loading
+        function loadGame() {
+            const script = document.createElement('script');
+            script.src = 'bloop.js';
+            
+            script.onload = function() {
+                gameState.loaded = true;
+                updateStatus('Game ready! Use arrow keys to play.', 'ready');
+                
+                // Clear loading pattern
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                console.log('✅ BLOOP game loaded successfully');
+            };
+            
+            script.onerror = function() {
+                updateStatus('Game failed to load. Building WebAssembly...', 'error');
+                console.error('❌ Failed to load bloop.js');
+                
+                setTimeout(() => {
+                    updateStatus('WebAssembly build required. Check GitHub Actions.', 'error');
+                }, 3000);
+            };
+            
+            document.head.appendChild(script);
+        }
+        
+        // Initialize
+        initializeCanvas();
+        loadGame();
+        
+        // Performance monitoring
+        if ('performance' in window) {
+            window.addEventListener('load', () => {
+                console.log(`⚡ Page loaded in ${Math.round(performance.now())}ms`);
+            });
+        }
+        
+        // Responsive canvas sizing
+        function handleResize() {
+            const container = canvas.parentElement;
+            const containerWidth = container.clientWidth - 40; // Account for padding
+            const aspectRatio = DISPLAY_CONFIG.width / DISPLAY_CONFIG.height;
+            
+            if (containerWidth < canvas.width) {
+                canvas.style.width = `${containerWidth}px`;
+                canvas.style.height = `${containerWidth / aspectRatio}px`;
+            } else {
+                canvas.style.width = '';
+                canvas.style.height = '';
+            }
+        }
+        
+        window.addEventListener('resize', handleResize);
+        handleResize(); // Initial sizing
+    </script>
 </body>
 </html>
