@@ -279,6 +279,9 @@
         function initCanvas() {
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+            canvas.setAttribute('tabindex', '0');  // Make canvas focusable
+            canvas.focus();                        // Focus the canvas
+        
         }
         
         initCanvas();
@@ -348,7 +351,7 @@
                     break;
             }
         });
-        
+        canvas.addEventListener('click', () => canvas.focus());
         // Game interface functions
         window.drawPixel = function(x, y, color) {
             if (x >= 0 && x < 128 && y >= 0 && y < 64) {
