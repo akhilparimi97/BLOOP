@@ -127,8 +127,8 @@
         
         /* Physical Buttons */
         .game-button {
-            width: 80px;
-            height: 80px;
+            width: 150px;
+            height: 150px;
             border-radius: 50%;
             background: linear-gradient(145deg, #4a4a4a, #2a2a2a);
             border: 3px solid #555;
@@ -245,8 +245,8 @@
         </div>
         
         <div class="button-labels">
-            <span>LEFT</span>
-            <span>RIGHT</span>
+            <span>SEL</span>
+            <span>NAV</span>
         </div>
         
         <div class="power-section">
@@ -353,13 +353,13 @@
         });
         canvas.addEventListener('click', () => canvas.focus());
         // Game interface functions
-        window.drawPixel = function(x, y, color) {
+        window.js_draw_pixel = function(x, y, color) {
             if (x >= 0 && x < 128 && y >= 0 && y < 64) {
                 pixelBuffer[y * 128 + x] = color;
             }
         };
         
-        window.updateDisplay = function() {
+        window.js_display = function() {
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
@@ -378,11 +378,11 @@
             }
         };
         
-        window.clearDisplay = function() {
+        window.js_clear_display = function() {
             pixelBuffer.fill(0);
         };
         
-        window.isButtonPressed = function(pin) {
+        window.js_button_pressed = function(pin) {
             return buttons[pin] ? 1 : 0;
         };
             // Emscripten module configuration
@@ -392,12 +392,6 @@
             console.log('BLOOP Emulator loaded successfully!');
           }
         };
-
-        // Expose functions for C++ EM_ASM bridges
-        window.drawPixel     = drawPixel;
-        window.clearDisplay  = clearDisplay;
-        window.updateDisplay = updateDisplay;
-        window.isButtonPressed = isButtonPressed;
         
         // Load game
         const script = document.createElement('script');
