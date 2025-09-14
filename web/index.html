@@ -7,7 +7,7 @@
   :root {
     --device-red: #c62828;
     --device-red-dark: #8e0000;
-    --screen-scale: 4; /* 128x64 -> 512x256 */
+    --screen-scale: 2; /* 128x64 -> 512x256 */
   }
   body {
     background:#111; color:#eee; font:14px/1.4 system-ui, sans-serif;
@@ -34,17 +34,17 @@
     background: #000;
   }
   .controls {
-    margin-top: 14px;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
+    margin-top: calc(30px* var(--screen-scale)); 
+    display: grid; gap: calc(40px* var(--screen-scale));
+    grid-template-columns:repeat(2, calc(40px* var(--screen-scale))); justify-content: center;
   }
   .btn {
+    width: calc(40px* var(--screen-scale));  height: calc(40px* var(--screen-scale));
     background:#222; color:#eee; border:2px solid #555;
-    border-radius: 12px; padding: 12px 0; font-weight:700; letter-spacing:0.5px;
+    border-radius: 50%; padding: 12px 0; font-weight:700; letter-spacing:0.5px;
     box-shadow: inset 0 -3px 0 rgba(255,255,255,0.06);
-    cursor:pointer; user-select:none;
-    transition: transform .05s ease-in;
+    cursor:pointer; user-select:none; display: flex;
+    transition: transform .05s ease-in;  align-items: center;  justify-content: center; font-size: calc(8px* var(--screen-scale));
     text-transform: uppercase;
   }
   .btn:active { transform: translateY(2px); }
@@ -57,7 +57,7 @@
 </style>
 </head>
 <body>
-  <div class="device" aria-label="BLOOP handheld">
+  <div class="device" aria-label="BLOOP ">
     <div class="screen-wrap">
       <canvas id="screen" width="128" height="64" aria-label="game screen"></canvas>
     </div>
@@ -65,7 +65,6 @@
       <div class="btn" id="btnA" aria-label="A button">A ◀</div>
       <div class="btn" id="btnB" aria-label="B button">B ▶</div>
     </div>
-    <div class="legend">Hold both buttons (A + B) to exit to menu</div>
   </div>
 
   <script>
