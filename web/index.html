@@ -1,410 +1,124 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BLOOP - Arduino Game Emulator</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Arial', sans-serif;
-            background: radial-gradient(circle at center, #1a1a1a, #000000);
-            color: #fff;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        /* Device Container */
-        .device {
-            background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
-            border-radius: 25px;
-            padding: 40px;
-            box-shadow: 
-                0 20px 40px rgba(0,0,0,0.5),
-                inset 0 2px 5px rgba(255,255,255,0.1),
-                inset 0 -2px 5px rgba(0,0,0,0.3);
-            border: 2px solid #333;
-            position: relative;
-            max-width: 600px;
-            width: 100%;
-        }
-        
-        .device::before {
-            content: '';
-            position: absolute;
-            top: 15px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60px;
-            height: 6px;
-            background: linear-gradient(90deg, #444, #666, #444);
-            border-radius: 3px;
-            box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
-        }
-        
-        /* Brand Label */
-        .brand {
-            text-align: center;
-            margin-bottom: 30px;
-            font-family: 'Courier New', monospace;
-            font-size: 1.2em;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-        }
-        
-        /* Display Container */
-        .display-container {
-            background: #000;
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 40px;
-            box-shadow: 
-                inset 0 0 20px rgba(0,0,0,0.8),
-                inset 0 4px 8px rgba(0,0,0,0.6),
-                0 2px 10px rgba(0,255,0,0.1);
-            border: 3px solid #333;
-            position: relative;
-        }
-        
-        .display-container::before {
-            content: '';
-            position: absolute;
-            top: -15px;
-            left: 20px;
-            font-size: 10px;
-            color: #666;
-            font-family: 'Arial', sans-serif;
-        }
-        
-        /* Canvas */
-        canvas {
-            width: 100%;
-            max-width: 512px;
-            height: auto;
-            aspect-ratio: 2/1;
-            background: #000;
-            border-radius: 8px;
-            image-rendering: pixelated;
-            box-shadow: 0 0 15px rgba(0,255,0,0.2);
-            display: block;
-            margin: 0 auto;
-        }
-        
-        /* Status LED */
-        .status-led {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #ff0000;
-            box-shadow: 0 0 10px #ff0000;
-            transition: all 0.3s ease;
-        }
-        
-        .status-led.ready {
-            background: #00ff00;
-            box-shadow: 0 0 10px #00ff00;
-        }
-        
-        /* Button Container */
-        .button-container {
-            display: flex;
-            justify-content: center;
-            gap: 80px;
-            margin-top: 20px;
-        }
-        
-        /* Physical Buttons */
-        .game-button {
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
-            background: linear-gradient(145deg, #4a4a4a, #2a2a2a);
-            border: 3px solid #555;
-            box-shadow: 
-                0 8px 16px rgba(0,0,0,0.4),
-                inset 0 2px 4px rgba(255,255,255,0.1),
-                inset 0 -2px 4px rgba(0,0,0,0.3);
-            position: relative;
-            cursor: pointer;
-            user-select: none;
-            transition: all 0.1s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .game-button:active {
-            transform: translateY(2px);
-            box-shadow: 
-                0 4px 8px rgba(0,0,0,0.4),
-                inset 0 2px 4px rgba(0,0,0,0.3),
-                inset 0 -1px 2px rgba(255,255,255,0.1);
-        }
-        
-        .game-button.pressed {
-            background: linear-gradient(145deg, #3a3a3a, #1a1a1a);
-            box-shadow: 
-                0 2px 4px rgba(0,0,0,0.6),
-                inset 0 4px 8px rgba(0,0,0,0.5);
-            transform: translateY(2px);
-        }
-        
-        .game-button .button-label {
-            color: #aaa;
-            font-size: 12px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
-        .game-button .button-arrow {
-            font-size: 24px;
-            color: #ccc;
-            margin-bottom: 2px;
-        }
-        
-        /* Button Labels */
-        .button-labels {
-            display: flex;
-            justify-content: center;
-            gap: 120px;
-            margin-top: 15px;
-            font-size: 11px;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
-        /* Power Indicator */
-        .power-section {
-            position: absolute;
-            bottom: 15px;
-            right: 20px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 10px;
-            color: #666;
-            text-transform: uppercase;
-        }
-        
-        .power-led {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: #00ff00;
-            box-shadow: 0 0 8px #00ff00;
-        }
-        
-        /* Responsive Design - Maintain hardware proportions */
-        @media (max-width: 768px) {
-            .device {
-                transform: scale(0.8);
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .device {
-                transform: scale(0.6);
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BLOOP Web Emulator</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #111;
+      color: white;
+      font-family: monospace;
+    }
+    #screen {
+      border: 2px solid #0f0;
+      background-color: black;
+    }
+    .buttons {
+      margin-top: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 5px;
+      font-size: 16px;
+    }
+    button.pressed {
+      background-color: #0f0;
+      color: black;
+    }
+  </style>
 </head>
 <body>
-    <div class="device">
-        <div class="brand">BLOOP</div>
-        <div class="status-led" id="statusLed"></div>
-        
-        <div class="display-container">
-            <canvas id="gameCanvas" width="512" height="256"></canvas>
-        </div>
-        
-        <div class="button-container">
-            <button class="game-button" id="leftButton">
-                <div>
-                    <div class="button-arrow">←</div>
-                </div>
-            </button>
-            <button class="game-button" id="rightButton">
-                <div>
-                    <div class="button-arrow">→</div>
-                </div>
-            </button>
-        </div>
-        
-        <div class="button-labels">
-            <span>SEL</span>
-            <span>NAV</span>
-        </div>
-        
-        <div class="power-section">
-            <div class="power-led"></div>
-            <span>PWR</span>
-        </div>
-    </div>
+  <h1>BLOOP Emulator</h1>
+  <canvas id="screen" width="128" height="64"></canvas>
+  <div class="buttons">
+    <button id="leftButton">A</button>
+    <button id="rightButton">B</button>
+  </div>
 
-    <script>
-        // Game state
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const statusLed = document.getElementById('statusLed');
-        const leftButton = document.getElementById('leftButton');
-        const rightButton = document.getElementById('rightButton');
-        
-        let buttons = {
-            5: false,  // Left button (GPIO5)
-            6: false   // Right button (GPIO6)
-        };
-        
-        let pixelBuffer = new Array(128 * 64).fill(0);
-        let gameLoaded = false;
-        
-        // Display configuration
-        const SCALE_X = canvas.width / 128;
-        const SCALE_Y = canvas.height / 64;
-        
-        // Initialize canvas
-        function initCanvas() {
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            canvas.setAttribute('tabindex', '0');  // Make canvas focusable
-            canvas.focus();                        // Focus the canvas
-        
-        }
-        
-        initCanvas();
-        
-        // Button event handlers
-        function handleButtonPress(buttonId, pressed) {
-            const pin = buttonId === 'leftButton' ? 5 : 6;
-            const button = buttonId === 'leftButton' ? leftButton : rightButton;
-            
-            buttons[pin] = pressed;
-            
-            if (pressed) {
-                button.classList.add('pressed');
-            } else {
-                button.classList.remove('pressed');
-            }
-        }
-        
-        // Mouse/Touch events for buttons
-        leftButton.addEventListener('mousedown', () => handleButtonPress('leftButton', true));
-        leftButton.addEventListener('mouseup', () => handleButtonPress('leftButton', false));
-        leftButton.addEventListener('mouseleave', () => handleButtonPress('leftButton', false));
-        leftButton.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            handleButtonPress('leftButton', true);
-        });
-        leftButton.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            handleButtonPress('leftButton', false);
-        });
-        
-        rightButton.addEventListener('mousedown', () => handleButtonPress('rightButton', true));
-        rightButton.addEventListener('mouseup', () => handleButtonPress('rightButton', false));
-        rightButton.addEventListener('mouseleave', () => handleButtonPress('rightButton', false));
-        rightButton.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            handleButtonPress('rightButton', true);
-        });
-        rightButton.addEventListener('touchend', (e) => {
-            e.preventDefault();
-            handleButtonPress('rightButton', false);
-        });
-        
-        // Keyboard support (arrow keys)
-        document.addEventListener('keydown', (e) => {
-            switch(e.code) {
-                case 'ArrowLeft':
-                    handleButtonPress('leftButton', true);
-                    e.preventDefault();
-                    break;
-                case 'ArrowRight':
-                    handleButtonPress('rightButton', true);
-                    e.preventDefault();
-                    break;
-            }
-        });
-        
-        document.addEventListener('keyup', (e) => {
-            switch(e.code) {
-                case 'ArrowLeft':
-                    handleButtonPress('leftButton', false);
-                    e.preventDefault();
-                    break;
-                case 'ArrowRight':
-                    handleButtonPress('rightButton', false);
-                    e.preventDefault();
-                    break;
-            }
-        });
-        canvas.addEventListener('click', () => canvas.focus());
-        // Game interface functions
-        window.js_draw_pixel = function(x, y, color) {
-            if (x >= 0 && x < 128 && y >= 0 && y < 64) {
-                pixelBuffer[y * 128 + x] = color;
-            }
-        };
-        
-        window.js_display = function() {
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            for (let y = 0; y < 64; y++) {
-                for (let x = 0; x < 128; x++) {
-                    if (pixelBuffer[y * 128 + x]) {
-                        const pixelX = Math.floor(x * SCALE_X);
-                        const pixelY = Math.floor(y * SCALE_Y);
-                        const pixelW = Math.ceil(SCALE_X);
-                        const pixelH = Math.ceil(SCALE_Y);
-                        
-                        ctx.fillStyle = '#00ff00';
-                        ctx.fillRect(pixelX, pixelY, pixelW, pixelH);
-                    }
-                }
-            }
-        };
-        
-        window.js_clear_display = function() {
-            pixelBuffer.fill(0);
-        };
-        
-        window.js_button_pressed = function(pin) {
-            return buttons[pin] ? 1 : 0;
-        };
-            // Emscripten module configuration
-        var Module = { 
-          canvas,
-          onRuntimeInitialized: function() {
-            console.log('BLOOP Emulator loaded successfully!');
+  <script>
+    const canvas = document.getElementById('screen');
+    const ctx = canvas.getContext('2d');
+
+    const SCREEN_WIDTH = 128;
+    const SCREEN_HEIGHT = 64;
+    const SCALE_X = canvas.width / SCREEN_WIDTH;
+    const SCALE_Y = canvas.height / SCREEN_HEIGHT;
+
+    let pixelBuffer = new Uint8Array(SCREEN_WIDTH * SCREEN_HEIGHT);
+
+    // button state: 0 = A, 1 = B
+    let buttons = { 0: false, 1: false };
+
+    // ========= BRIDGE FUNCTIONS (called from C++) =========
+    window.js_draw_pixel = function(x, y, color) {
+      if (x >= 0 && x < SCREEN_WIDTH && y >= 0 && y < SCREEN_HEIGHT) {
+        pixelBuffer[y * SCREEN_WIDTH + x] = color;
+      }
+    };
+
+    window.js_clear_display = function() {
+      pixelBuffer.fill(0);
+    };
+
+    window.js_display = function() {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (let y = 0; y < SCREEN_HEIGHT; y++) {
+        for (let x = 0; x < SCREEN_WIDTH; x++) {
+          if (pixelBuffer[y * SCREEN_WIDTH + x]) {
+            const px = Math.floor(x * SCALE_X);
+            const py = Math.floor(y * SCALE_Y);
+            ctx.fillStyle = '#0f0';
+            ctx.fillRect(px, py, SCALE_X, SCALE_Y);
           }
-        };
-        
-        // Load game
-        const script = document.createElement('script');
-        script.src = 'bloop.js';
-        script.onload = function() {
-            gameLoaded = true;
-            statusLed.classList.add('ready');
-        };
-        script.onerror = function() {
-            // Keep red LED if game fails to load
-            console.error('Failed to load bloop.js');
-        };
-        document.head.appendChild(script);
-    </script>
+        }
+      }
+    };
+
+    window.js_button_pressed = function(pin) {
+      return buttons[pin] ? 1 : 0;
+    };
+    // =======================================================
+
+    // Handle on-screen buttons
+    function bindButton(id, pin) {
+      const el = document.getElementById(id);
+      el.addEventListener("mousedown", () => {
+        buttons[pin] = true;
+        el.classList.add("pressed");
+      });
+      el.addEventListener("mouseup", () => {
+        buttons[pin] = false;
+        el.classList.remove("pressed");
+      });
+      el.addEventListener("mouseleave", () => {
+        buttons[pin] = false;
+        el.classList.remove("pressed");
+      });
+    }
+    bindButton("leftButton", 0);
+    bindButton("rightButton", 1);
+
+    // Keyboard mapping
+    document.addEventListener("keydown", e => {
+      if (e.code === "ArrowLeft") buttons[0] = true;
+      if (e.code === "ArrowRight") buttons[1] = true;
+    });
+    document.addEventListener("keyup", e => {
+      if (e.code === "ArrowLeft") buttons[0] = false;
+      if (e.code === "ArrowRight") buttons[1] = false;
+    });
+  </script>
+
+  <!-- Make sure this is included so the wasm runs -->
+  <script src="bloop.js"></script>
 </body>
 </html>
