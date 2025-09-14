@@ -3,14 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="BLOOP - A retro-style Arduino game running in your browser. Cross-platform obstacle-avoidance game with classic arcade vibes.">
-    <meta name="keywords" content="Arduino, game, retro, arcade, WebAssembly, ESP32, OLED">
-    <meta name="author" content="Akhil Parimi">
-    <title>BLOOP - Arduino Game Web Emulator</title>
-    
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-    
+    <title>BLOOP - Arduino Game Emulator</title>
     <style>
         * {
             margin: 0;
@@ -18,598 +11,390 @@
             box-sizing: border-box;
         }
         
-        :root {
-            --primary-bg: #0a0a0a;
-            --secondary-bg: #1a1a2e;
-            --card-bg: #2a2a3a;
-            --accent-green: #00ff00;
-            --accent-blue: #00ffff;
-            --text-primary: #ffffff;
-            --text-secondary: #cccccc;
-            --text-muted: #888888;
-            --border-color: #333333;
-            --success: #44ff44;
-            --warning: #ffff00;
-            --error: #ff4444;
-            --shadow: rgba(0, 0, 0, 0.3);
-            --glow: rgba(0, 255, 0, 0.2);
-        }
-        
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, var(--primary-bg), var(--secondary-bg));
-            color: var(--text-primary);
-            line-height: 1.6;
+            font-family: 'Arial', sans-serif;
+            background: radial-gradient(circle at center, #1a1a1a, #000000);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             min-height: 100vh;
+            padding: 20px;
         }
         
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-        
-        /* Header */
-        .header {
-            padding: 2rem 0;
-            text-align: center;
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .logo {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 3.5rem;
-            font-weight: 600;
-            color: var(--accent-green);
-            text-shadow: 0 0 20px var(--accent-green);
-            margin-bottom: 0.5rem;
-            animation: glow 3s ease-in-out infinite alternate;
-        }
-        
-        @keyframes glow {
-            from { text-shadow: 0 0 20px var(--accent-green), 0 0 40px var(--accent-green); }
-            to { text-shadow: 0 0 30px var(--accent-green), 0 0 60px var(--accent-green); }
-        }
-        
-        .subtitle {
-            font-size: 1.25rem;
-            color: var(--text-secondary);
-            font-weight: 300;
-        }
-        
-        .description {
-            margin-top: 1rem;
-            color: var(--text-muted);
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        
-        /* Main Content */
-        .main-content {
-            padding: 3rem 0;
-        }
-        
-        .grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 3rem;
-            align-items: start;
-        }
-        
-        /* Game Section */
-        .game-section {
-            background: linear-gradient(145deg, var(--card-bg), #1a1a2a);
-            border-radius: 20px;
-            padding: 2rem;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 10px 30px var(--shadow);
-        }
-        
-        .game-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-        
-        .game-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: var(--accent-green);
-        }
-        
-        .status-badge {
-            padding: 0.5rem 1rem;
+        /* Device Container */
+        .device {
+            background: linear-gradient(145deg, #2a2a2a, #1a1a1a);
             border-radius: 25px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .status-loading {
-            background: rgba(255, 255, 0, 0.1);
-            color: var(--warning);
-            border: 1px solid var(--warning);
-            animation: pulse 2s infinite;
-        }
-        
-        .status-ready {
-            background: rgba(68, 255, 68, 0.1);
-            color: var(--success);
-            border: 1px solid var(--success);
-        }
-        
-        .status-error {
-            background: rgba(255, 68, 68, 0.1);
-            color: var(--error);
-            border: 1px solid var(--error);
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-        }
-        
-        .canvas-container {
+            padding: 40px;
+            box-shadow: 
+                0 20px 40px rgba(0,0,0,0.5),
+                inset 0 2px 5px rgba(255,255,255,0.1),
+                inset 0 -2px 5px rgba(0,0,0,0.3);
+            border: 2px solid #333;
             position: relative;
-            display: flex;
-            justify-content: center;
-            margin: 1.5rem 0;
+            max-width: 600px;
+            width: 100%;
         }
         
-        canvas {
-            border: 2px solid var(--accent-green);
-            border-radius: 12px;
-            background: #000000;
-            image-rendering: pixelated;
-            box-shadow: 0 0 30px var(--glow), 0 10px 20px var(--shadow);
-            transition: box-shadow 0.3s ease;
+        .device::before {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 6px;
+            background: linear-gradient(90deg, #444, #666, #444);
+            border-radius: 3px;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
         }
         
-        canvas:hover {
-            box-shadow: 0 0 40px var(--glow), 0 15px 30px var(--shadow);
-        }
-        
-        /* Controls Section */
-        .controls-section {
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-        }
-        
-        .card {
-            background: linear-gradient(145deg, var(--card-bg), #222);
-            border-radius: 16px;
-            padding: 1.5rem;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 5px 15px var(--shadow);
-        }
-        
-        .card-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
-        }
-        
-        .card-icon {
-            font-size: 1.25rem;
-        }
-        
-        .card-title {
-            font-size: 1.125rem;
-            font-weight: 600;
-            color: var(--accent-blue);
-        }
-        
-        .controls-grid {
-            display: grid;
-            gap: 0.75rem;
-        }
-        
-        .control-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.75rem;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .control-label {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
-        
-        .key-combo {
-            display: flex;
-            gap: 0.5rem;
-        }
-        
-        .key {
-            padding: 0.25rem 0.75rem;
-            background: linear-gradient(145deg, #555, #333);
-            border-radius: 6px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
-            font-weight: 500;
-            border: 1px solid #666;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-        }
-        
-        /* Info Section */
-        .info-list {
-            list-style: none;
-        }
-        
-        .info-list li {
-            padding: 0.5rem 0;
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-        }
-        
-        .info-list li:before {
-            content: "▶";
-            color: var(--accent-green);
-            margin-right: 0.5rem;
-        }
-        
-        /* Footer */
-        .footer {
-            padding: 2rem 0;
-            border-top: 1px solid var(--border-color);
+        /* Brand Label */
+        .brand {
             text-align: center;
+            margin-bottom: 30px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.2em;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 3px;
         }
         
-        .footer-links {
+        /* Display Container */
+        .display-container {
+            background: #000;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 40px;
+            box-shadow: 
+                inset 0 0 20px rgba(0,0,0,0.8),
+                inset 0 4px 8px rgba(0,0,0,0.6),
+                0 2px 10px rgba(0,255,0,0.1);
+            border: 3px solid #333;
+            position: relative;
+        }
+        
+        .display-container::before {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: 20px;
+            font-size: 10px;
+            color: #666;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        /* Canvas */
+        canvas {
+            width: 100%;
+            max-width: 512px;
+            height: auto;
+            aspect-ratio: 2/1;
+            background: #000;
+            border-radius: 8px;
+            image-rendering: pixelated;
+            box-shadow: 0 0 15px rgba(0,255,0,0.2);
+            display: block;
+            margin: 0 auto;
+        }
+        
+        /* Status LED */
+        .status-led {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff0000;
+            box-shadow: 0 0 10px #ff0000;
+            transition: all 0.3s ease;
+        }
+        
+        .status-led.ready {
+            background: #00ff00;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        
+        /* Button Container */
+        .button-container {
             display: flex;
             justify-content: center;
-            gap: 2rem;
-            margin-bottom: 1rem;
+            gap: 80px;
+            margin-top: 20px;
         }
         
-        .footer-link {
-            color: var(--text-muted);
-            text-decoration: none;
+        /* Physical Buttons */
+        .game-button {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #4a4a4a, #2a2a2a);
+            border: 3px solid #555;
+            box-shadow: 
+                0 8px 16px rgba(0,0,0,0.4),
+                inset 0 2px 4px rgba(255,255,255,0.1),
+                inset 0 -2px 4px rgba(0,0,0,0.3);
+            position: relative;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.1s ease;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            transition: color 0.3s ease;
-            font-size: 0.9rem;
+            justify-content: center;
         }
         
-        .footer-link:hover {
-            color: var(--accent-green);
+        .game-button:active {
+            transform: translateY(2px);
+            box-shadow: 
+                0 4px 8px rgba(0,0,0,0.4),
+                inset 0 2px 4px rgba(0,0,0,0.3),
+                inset 0 -1px 2px rgba(255,255,255,0.1);
         }
         
-        .footer-text {
-            color: var(--text-muted);
-            font-size: 0.875rem;
+        .game-button.pressed {
+            background: linear-gradient(145deg, #3a3a3a, #1a1a1a);
+            box-shadow: 
+                0 2px 4px rgba(0,0,0,0.6),
+                inset 0 4px 8px rgba(0,0,0,0.5);
+            transform: translateY(2px);
         }
         
-        /* Responsive Design */
+        .game-button .button-label {
+            color: #aaa;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .game-button .button-arrow {
+            font-size: 24px;
+            color: #ccc;
+            margin-bottom: 2px;
+        }
+        
+        /* Button Labels */
+        .button-labels {
+            display: flex;
+            justify-content: center;
+            gap: 120px;
+            margin-top: 15px;
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        /* Power Indicator */
+        .power-section {
+            position: absolute;
+            bottom: 15px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 10px;
+            color: #666;
+            text-transform: uppercase;
+        }
+        
+        .power-led {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #00ff00;
+            box-shadow: 0 0 8px #00ff00;
+        }
+        
+        /* Responsive Design - Maintain hardware proportions */
         @media (max-width: 768px) {
-            .grid {
-                grid-template-columns: 1fr;
-                gap: 2rem;
-            }
-            
-            .logo {
-                font-size: 2.5rem;
-            }
-            
-            canvas {
-                width: 100%;
-                max-width: 400px;
-                height: auto;
-            }
-            
-            .game-header {
-                flex-direction: column;
-                gap: 1rem;
-            }
-            
-            .footer-links {
-                flex-direction: column;
-                gap: 1rem;
+            .device {
+                transform: scale(0.8);
             }
         }
         
         @media (max-width: 480px) {
-            .container {
-                padding: 0 15px;
+            .device {
+                transform: scale(0.6);
             }
-            
-            .logo {
-                font-size: 2rem;
-            }
-            
-            .game-section, .card {
-                padding: 1.25rem;
-            }
-        }
-        
-        /* Loading Animation */
-        .loading-dots::after {
-            content: '';
-            animation: loadingDots 2s infinite;
-        }
-        
-        @keyframes loadingDots {
-            0%, 20% { content: ''; }
-            40% { content: '.'; }
-            60% { content: '..'; }
-            80%, 100% { content: '...'; }
         }
     </style>
 </head>
 <body>
-    <header class="header">
-        <div class="container">
-            <h1 class="logo">BLOOP</h1>
-            <p class="subtitle">Arduino Game · Web Emulator</p>
-            <p class="description">
-                A retro-style obstacle-avoidance game that runs on both Arduino hardware and in web browsers. 
-                Experience classic arcade gaming with modern cross-platform compatibility.
-            </p>
+    <div class="device">
+        <div class="brand">BLOOP</div>
+        <div class="status-led" id="statusLed"></div>
+        
+        <div class="display-container">
+            <canvas id="gameCanvas" width="512" height="256"></canvas>
         </div>
-    </header>
-
-    <main class="main-content">
-        <div class="container">
-            <div class="grid">
-                <section class="game-section">
-                    <header class="game-header">
-                        <h2 class="game-title">Game Display</h2>
-                        <div id="status" class="status-badge status-loading">
-                            <span>🎮</span>
-                            <span class="loading-dots">Loading game engine</span>
-                        </div>
-                    </header>
-                    
-                    <div class="canvas-container">
-                        <canvas id="gameCanvas" width="512" height="256"></canvas>
-                    </div>
-                </section>
-                
-                <aside class="controls-section">
-                    <div class="card">
-                        <header class="card-header">
-                            <span class="card-icon">🎮</span>
-                            <h3 class="card-title">Controls</h3>
-                        </header>
-                        <div class="controls-grid">
-                            <div class="control-item">
-                                <span class="control-label">Move Left</span>
-                                <div class="key-combo">
-                                    <kbd class="key">←</kbd>
-                                </div>
-                            </div>
-                            <div class="control-item">
-                                <span class="control-label">Move Right</span>
-                                <div class="key-combo">
-                                    <kbd class="key">→</kbd>
-                                </div>
-                            </div>
-                            <div class="control-item">
-                                <span class="control-label">Pause</span>
-                                <div class="key-combo">
-                                    <kbd class="key">←</kbd>
-                                    <span>+</span>
-                                    <kbd class="key">→</kbd>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                   </div>
-                </aside>
-            </div>
+        
+        <div class="button-container">
+            <button class="game-button" id="leftButton">
+                <div>
+                    <div class="button-arrow">←</div>
+                </div>
+            </button>
+            <button class="game-button" id="rightButton">
+                <div>
+                    <div class="button-arrow">→</div>
+                </div>
+            </button>
         </div>
-    </main>
-
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-links">
-                <a href="https://github.com/akhilparimi97/BLOOP" class="footer-link">
-                    <span>💻</span>
-                    View Source Code
-                </a>
-                <a href="https://github.com/akhilparimi97/BLOOP#arduino-setup" class="footer-link">
-                    <span>🔧</span>
-                    Arduino Setup Guide
-                </a>
-                <a href="https://github.com/akhilparimi97/BLOOP/issues" class="footer-link">
-                    <span>🐛</span>
-                    Report Issues
-                </a>
-            </div>
-            <p class="footer-text">
-                Built with ❤️ using Arduino, C++, and WebAssembly
-            </p>
+        
+        <div class="button-labels">
+            <span>LEFT</span>
+            <span>RIGHT</span>
         </div>
-    </footer>
+        
+        <div class="power-section">
+            <div class="power-led"></div>
+            <span>PWR</span>
+        </div>
+    </div>
 
     <script>
-        // Game state management
+        // Game state
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const statusElement = document.getElementById('status');
+        const statusLed = document.getElementById('statusLed');
+        const leftButton = document.getElementById('leftButton');
+        const rightButton = document.getElementById('rightButton');
         
-        let gameState = {
-            loaded: false,
-            buttons: { 5: false, 6: false },
-            pixelBuffer: new Array(128 * 64).fill(0)
+        let buttons = {
+            5: false,  // Left button (GPIO5)
+            6: false   // Right button (GPIO6)
         };
+        
+        let pixelBuffer = new Array(128 * 64).fill(0);
+        let gameLoaded = false;
         
         // Display configuration
-        const DISPLAY_CONFIG = {
-            width: 128,
-            height: 64,
-            scaleX: canvas.width / 128,
-            scaleY: canvas.height / 64
-        };
+        const SCALE_X = canvas.width / 128;
+        const SCALE_Y = canvas.height / 64;
         
-        // Status management
-        function updateStatus(message, type = 'loading') {
-            const icons = { loading: '🎮', ready: '✅', error: '❌' };
-            const classes = { loading: 'status-loading', ready: 'status-ready', error: 'status-error' };
-            
-            statusElement.innerHTML = `<span>${icons[type]}</span><span>${message}</span>`;
-            statusElement.className = `status-badge ${classes[type]}`;
-        }
-        
-        // Canvas initialization
-        function initializeCanvas() {
-            ctx.fillStyle = '#000000';
+        // Initialize canvas
+        function initCanvas() {
+            ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        
+        initCanvas();
+        
+        // Button event handlers
+        function handleButtonPress(buttonId, pressed) {
+            const pin = buttonId === 'leftButton' ? 5 : 6;
+            const button = buttonId === 'leftButton' ? leftButton : rightButton;
             
-            // Subtle loading pattern
-            ctx.fillStyle = '#001100';
-            for (let x = 0; x < canvas.width; x += 8) {
-                for (let y = 0; y < canvas.height; y += 8) {
-                    if ((x + y) % 16 === 0) {
-                        ctx.fillRect(x, y, 2, 2);
-                    }
-                }
+            buttons[pin] = pressed;
+            
+            if (pressed) {
+                button.classList.add('pressed');
+            } else {
+                button.classList.remove('pressed');
             }
         }
         
-        // Input handling with visual feedback
-        function handleKeyPress(key, pressed) {
-            const keyMap = { 'ArrowLeft': 5, 'ArrowRight': 6 };
-            if (keyMap[key]) {
-                gameState.buttons[keyMap[key]] = pressed;
-                
-                if (pressed && gameState.loaded) {
-                    // Visual feedback
-                    const colors = { 5: 'rgba(255,0,0,0.3)', 6: 'rgba(0,0,255,0.3)' };
-                    canvas.style.boxShadow = `0 0 30px ${colors[keyMap[key]]}, 0 10px 20px var(--shadow)`;
-                    setTimeout(() => {
-                        canvas.style.boxShadow = '0 0 30px var(--glow), 0 10px 20px var(--shadow)';
-                    }, 150);
-                }
-            }
-        }
+        // Mouse/Touch events for buttons
+        leftButton.addEventListener('mousedown', () => handleButtonPress('leftButton', true));
+        leftButton.addEventListener('mouseup', () => handleButtonPress('leftButton', false));
+        leftButton.addEventListener('mouseleave', () => handleButtonPress('leftButton', false));
+        leftButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleButtonPress('leftButton', true);
+        });
+        leftButton.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            handleButtonPress('leftButton', false);
+        });
         
-        // Event listeners
+        rightButton.addEventListener('mousedown', () => handleButtonPress('rightButton', true));
+        rightButton.addEventListener('mouseup', () => handleButtonPress('rightButton', false));
+        rightButton.addEventListener('mouseleave', () => handleButtonPress('rightButton', false));
+        rightButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleButtonPress('rightButton', true);
+        });
+        rightButton.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            handleButtonPress('rightButton', false);
+        });
+        
+        // Keyboard support (arrow keys)
         document.addEventListener('keydown', (e) => {
-            if (['ArrowLeft', 'ArrowRight'].includes(e.code)) {
-                e.preventDefault();
-                handleKeyPress(e.code, true);
+            switch(e.code) {
+                case 'ArrowLeft':
+                    handleButtonPress('leftButton', true);
+                    e.preventDefault();
+                    break;
+                case 'ArrowRight':
+                    handleButtonPress('rightButton', true);
+                    e.preventDefault();
+                    break;
             }
         });
         
         document.addEventListener('keyup', (e) => {
-            if (['ArrowLeft', 'ArrowRight'].includes(e.code)) {
-                e.preventDefault();
-                handleKeyPress(e.code, false);
+            switch(e.code) {
+                case 'ArrowLeft':
+                    handleButtonPress('leftButton', false);
+                    e.preventDefault();
+                    break;
+                case 'ArrowRight':
+                    handleButtonPress('rightButton', false);
+                    e.preventDefault();
+                    break;
             }
         });
         
-        // Game bridge functions
+        // Game interface functions
         window.drawPixel = function(x, y, color) {
-            if (x >= 0 && x < DISPLAY_CONFIG.width && y >= 0 && y < DISPLAY_CONFIG.height) {
-                gameState.pixelBuffer[y * DISPLAY_CONFIG.width + x] = color;
+            if (x >= 0 && x < 128 && y >= 0 && y < 64) {
+                pixelBuffer[y * 128 + x] = color;
             }
         };
         
         window.updateDisplay = function() {
-            // Clear canvas
-            ctx.fillStyle = '#000000';
+            ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Render pixels with enhanced visual effects
-            for (let y = 0; y < DISPLAY_CONFIG.height; y++) {
-                for (let x = 0; x < DISPLAY_CONFIG.width; x++) {
-                    if (gameState.pixelBuffer[y * DISPLAY_CONFIG.width + x]) {
-                        const pixelX = Math.floor(x * DISPLAY_CONFIG.scaleX);
-                        const pixelY = Math.floor(y * DISPLAY_CONFIG.scaleY);
-                        const pixelW = Math.ceil(DISPLAY_CONFIG.scaleX);
-                        const pixelH = Math.ceil(DISPLAY_CONFIG.scaleY);
+            for (let y = 0; y < 64; y++) {
+                for (let x = 0; x < 128; x++) {
+                    if (pixelBuffer[y * 128 + x]) {
+                        const pixelX = Math.floor(x * SCALE_X);
+                        const pixelY = Math.floor(y * SCALE_Y);
+                        const pixelW = Math.ceil(SCALE_X);
+                        const pixelH = Math.ceil(SCALE_Y);
                         
-                        // Main pixel
                         ctx.fillStyle = '#00ff00';
                         ctx.fillRect(pixelX, pixelY, pixelW, pixelH);
-                        
-                        // Subtle glow effect for larger pixels
-                        if (pixelW > 3 && pixelH > 3) {
-                            ctx.fillStyle = 'rgba(0,255,0,0.2)';
-                            ctx.fillRect(pixelX - 1, pixelY - 1, pixelW + 2, pixelH + 2);
-                        }
                     }
                 }
             }
         };
         
         window.clearDisplay = function() {
-            gameState.pixelBuffer.fill(0);
+            pixelBuffer.fill(0);
         };
         
         window.isButtonPressed = function(pin) {
-            return gameState.buttons[pin] ? 1 : 0;
+            return buttons[pin] ? 1 : 0;
         };
         
-        // Game loading
-        function loadGame() {
-            const script = document.createElement('script');
-            script.src = 'bloop.js';
-            
-            script.onload = function() {
-                gameState.loaded = true;
-                updateStatus('Game ready! Use arrow keys to play.', 'ready');
-                
-                // Clear loading pattern
-                ctx.fillStyle = '#000000';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                console.log('✅ BLOOP game loaded successfully');
-            };
-            
-            script.onerror = function() {
-                updateStatus('Game failed to load. Building WebAssembly...', 'error');
-                console.error('❌ Failed to load bloop.js');
-                
-                setTimeout(() => {
-                    updateStatus('WebAssembly build required. Check GitHub Actions.', 'error');
-                }, 3000);
-            };
-            
-            document.head.appendChild(script);
-        }
-        
-        // Initialize
-        initializeCanvas();
-        loadGame();
-        
-        // Performance monitoring
-        if ('performance' in window) {
-            window.addEventListener('load', () => {
-                console.log(`⚡ Page loaded in ${Math.round(performance.now())}ms`);
-            });
-        }
-        
-        // Responsive canvas sizing
-        function handleResize() {
-            const container = canvas.parentElement;
-            const containerWidth = container.clientWidth - 40; // Account for padding
-            const aspectRatio = DISPLAY_CONFIG.width / DISPLAY_CONFIG.height;
-            
-            if (containerWidth < canvas.width) {
-                canvas.style.width = `${containerWidth}px`;
-                canvas.style.height = `${containerWidth / aspectRatio}px`;
-            } else {
-                canvas.style.width = '';
-                canvas.style.height = '';
-            }
-        }
-        
-        window.addEventListener('resize', handleResize);
-        handleResize(); // Initial sizing
+        // Load game
+        const script = document.createElement('script');
+        script.src = 'bloop.js';
+        script.onload = function() {
+            gameLoaded = true;
+            statusLed.classList.add('ready');
+        };
+        script.onerror = function() {
+            // Keep red LED if game fails to load
+            console.error('Failed to load bloop.js');
+        };
+        document.head.appendChild(script);
     </script>
 </body>
 </html>
