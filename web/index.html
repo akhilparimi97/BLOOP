@@ -385,6 +385,19 @@
         window.isButtonPressed = function(pin) {
             return buttons[pin] ? 1 : 0;
         };
+            // Emscripten module configuration
+        var Module = { 
+          canvas,
+          onRuntimeInitialized: function() {
+            console.log('BLOOP Emulator loaded successfully!');
+          }
+        };
+
+        // Expose functions for C++ EM_ASM bridges
+        window.drawPixel     = drawPixel;
+        window.clearDisplay  = clearDisplay;
+        window.updateDisplay = updateDisplay;
+        window.isButtonPressed = isButtonPressed;
         
         // Load game
         const script = document.createElement('script');
