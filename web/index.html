@@ -1,124 +1,227 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>BLOOP Web Emulator</title>
-  <style>
-    body {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-      background-color: #111;
-      color: white;
-      font-family: monospace;
-    }
-    #screen {
-      border: 2px solid #0f0;
-      background-color: black;
-    }
-    .buttons {
-      margin-top: 10px;
-    }
-    button {
-      padding: 10px 20px;
-      margin: 5px;
-      font-size: 16px;
-    }
-    button.pressed {
-      background-color: #0f0;
-      color: black;
-    }
-  </style>
+<meta charset="utf-8" />
+<title>BLOOP Emulator</title>
+<style>
+  :root {
+    --device-red: #c62828;
+    --device-red-dark: #8e0000;
+    --screen-scale: 4; /* 128x64 -> 512x256 */
+  }
+  body {
+    background:#111; color:#eee; font:14px/1.4 system-ui, sans-serif;
+    min-height:100vh; margin:0; display:grid; place-items:center; padding:24px;
+  }
+  .device {
+    background: var(--device-red);
+    border: 2px solid var(--device-red-dark);
+    width: calc(128px * var(--screen-scale) + 48px);
+    padding: 16px;
+    border-radius: 18px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 0 12px rgba(255,255,255,0.12);
+  }
+  .screen-wrap {
+    background: #000; border-radius: 10px; padding: 8px;
+    border: 2px solid #690000;
+  }
+  canvas {
+    image-rendering: pixelated;
+    width: calc(128px * var(--screen-scale));
+    height: calc(64px * var(--screen-scale));
+    display:block;
+    margin: 0 auto;
+    background: #000;
+  }
+  .controls {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .btn {
+    background:#222; color:#eee; border:2px solid #555;
+    border-radius: 12px; padding: 12px 0; font-weight:700; letter-spacing:0.5px;
+    box-shadow: inset 0 -3px 0 rgba(255,255,255,0.06);
+    cursor:pointer; user-select:none;
+    transition: transform .05s ease-in;
+    text-transform: uppercase;
+  }
+  .btn:active { transform: translateY(2px); }
+  .btn.pressed { 
+    background: #444; 
+    box-shadow: inset 0 2px 0 rgba(0,0,0,0.3);
+    transform: translateY(2px); 
+  }
+  .legend { text-align:center; margin-top:10px; opacity:.85; font-size:12px; }
+</style>
 </head>
 <body>
-  <h1>BLOOP Emulator</h1>
-  <canvas id="screen" width="128" height="64"></canvas>
-  <div class="buttons">
-    <button id="leftButton">A</button>
-    <button id="rightButton">B</button>
+  <div class="device" aria-label="BLOOP handheld">
+    <div class="screen-wrap">
+      <canvas id="screen" width="128" height="64" aria-label="game screen"></canvas>
+    </div>
+    <div class="controls">
+      <div class="btn" id="btnA" aria-label="A button">A ◀</div>
+      <div class="btn" id="btnB" aria-label="B button">B ▶</div>
+    </div>
+    <div class="legend">Hold both buttons (A + B) to exit to menu</div>
   </div>
 
   <script>
+    // --- Framebuffer + draw functions used by WASM ---
     const canvas = document.getElementById('screen');
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const W = canvas.width, H = canvas.height;
+    const fb = new Uint8Array(W*H);
 
-    const SCREEN_WIDTH = 128;
-    const SCREEN_HEIGHT = 64;
-    const SCALE_X = canvas.width / SCREEN_WIDTH;
-    const SCALE_Y = canvas.height / SCREEN_HEIGHT;
-
-    let pixelBuffer = new Uint8Array(SCREEN_WIDTH * SCREEN_HEIGHT);
-
-    // button state: 0 = A, 1 = B
-    let buttons = { 0: false, 1: false };
-
-    // ========= BRIDGE FUNCTIONS (called from C++) =========
-    window.js_draw_pixel = function(x, y, color) {
-      if (x >= 0 && x < SCREEN_WIDTH && y >= 0 && y < SCREEN_HEIGHT) {
-        pixelBuffer[y * SCREEN_WIDTH + x] = color;
+    function drawPixel(x, y, on) {
+      if (x < 0 || y < 0 || x >= W || y >= H) return;
+      fb[y*W + x] = on ? 1 : 0;
+    }
+    
+    function clearDisplay() { 
+      fb.fill(0); 
+      ctx.fillStyle = '#000'; 
+      ctx.fillRect(0,0,W,H); 
+    }
+    
+    function updateDisplay() {
+      const img = ctx.getImageData(0,0,W,H);
+      const d = img.data;
+      for (let i=0, p=0; i<fb.length; ++i, p+=4) {
+        const v = fb[i] ? 255 : 0;
+        d[p]=d[p+1]=d[p+2]=v; d[p+3]=255;
       }
-    };
+      ctx.putImageData(img,0,0);
+    }
 
-    window.js_clear_display = function() {
-      pixelBuffer.fill(0);
-    };
+    // --- Enhanced input state management ---
+    const buttons = [0,0]; // 0:A (Left), 1:B (Right)
+    let keyboardButtonStates = [false, false];
+    let mouseButtonStates = [false, false];
+    
+    function isButtonPressed(pin) { 
+      return (buttons[pin|0] | 0); 
+    }
+    
+    function updateButtonState(index, pressed) {
+      buttons[index] = pressed ? 1 : 0;
+      const btn = index === 0 ? document.getElementById('btnA') : document.getElementById('btnB');
+      if (pressed) {
+        btn.classList.add('pressed');
+      } else {
+        btn.classList.remove('pressed');
+      }
+    }
 
-    window.js_display = function() {
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Keyboard handling with proper debouncing
+    let keyRepeatBlocker = {};
+    
+    window.addEventListener('keydown', (e) => {
+      if (keyRepeatBlocker[e.code]) return; // Block repeats
+      keyRepeatBlocker[e.code] = true;
+      
+      if (e.code === 'ArrowLeft') { 
+        keyboardButtonStates[0] = true;
+        updateButtonState(0, true);
+        e.preventDefault(); 
+      }
+      if (e.code === 'ArrowRight') { 
+        keyboardButtonStates[1] = true;
+        updateButtonState(1, true);
+        e.preventDefault(); 
+      }
+    });
+    
+    window.addEventListener('keyup', (e) => {
+      keyRepeatBlocker[e.code] = false;
+      
+      if (e.code === 'ArrowLeft') { 
+        keyboardButtonStates[0] = false;
+        if (!mouseButtonStates[0]) updateButtonState(0, false);
+        e.preventDefault(); 
+      }
+      if (e.code === 'ArrowRight') { 
+        keyboardButtonStates[1] = false;
+        if (!mouseButtonStates[1]) updateButtonState(1, false);
+        e.preventDefault(); 
+      }
+    });
 
-      for (let y = 0; y < SCREEN_HEIGHT; y++) {
-        for (let x = 0; x < SCREEN_WIDTH; x++) {
-          if (pixelBuffer[y * SCREEN_WIDTH + x]) {
-            const px = Math.floor(x * SCALE_X);
-            const py = Math.floor(y * SCALE_Y);
-            ctx.fillStyle = '#0f0';
-            ctx.fillRect(px, py, SCALE_X, SCALE_Y);
-          }
+    // Enhanced on-screen button handling
+    const btnA = document.getElementById('btnA');
+    const btnB = document.getElementById('btnB');
+
+    function setupButton(element, index) {
+      function setPressed(pressed) {
+        mouseButtonStates[index] = pressed;
+        if (pressed || !keyboardButtonStates[index]) {
+          updateButtonState(index, pressed || keyboardButtonStates[index]);
         }
       }
-    };
 
-    window.js_button_pressed = function(pin) {
-      return buttons[pin] ? 1 : 0;
-    };
-    // =======================================================
+      // Mouse events
+      element.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        setPressed(true);
+      });
+      
+      element.addEventListener('mouseup', (e) => {
+        e.preventDefault();
+        setPressed(false);
+      });
+      
+      element.addEventListener('mouseleave', (e) => {
+        e.preventDefault();
+        setPressed(false);
+      });
 
-    // Handle on-screen buttons
-    function bindButton(id, pin) {
-      const el = document.getElementById(id);
-      el.addEventListener("mousedown", () => {
-        buttons[pin] = true;
-        el.classList.add("pressed");
-      });
-      el.addEventListener("mouseup", () => {
-        buttons[pin] = false;
-        el.classList.remove("pressed");
-      });
-      el.addEventListener("mouseleave", () => {
-        buttons[pin] = false;
-        el.classList.remove("pressed");
+      // Touch events with better handling
+      element.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        setPressed(true);
+      }, { passive: false });
+      
+      element.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        setPressed(false);
+      }, { passive: false });
+      
+      element.addEventListener('touchcancel', (e) => {
+        e.preventDefault();
+        setPressed(false);
+      }, { passive: false });
+      
+      // Prevent context menu
+      element.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
       });
     }
-    bindButton("leftButton", 0);
-    bindButton("rightButton", 1);
 
-    // Keyboard mapping
-    document.addEventListener("keydown", e => {
-      if (e.code === "ArrowLeft") buttons[0] = true;
-      if (e.code === "ArrowRight") buttons[1] = true;
-    });
-    document.addEventListener("keyup", e => {
-      if (e.code === "ArrowLeft") buttons[0] = false;
-      if (e.code === "ArrowRight") buttons[1] = false;
-    });
+    setupButton(btnA, 0);
+    setupButton(btnB, 1);
+
+    // Prevent page scrolling on touch
+    document.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+    }, { passive: false });
+
+    // Emscripten module configuration
+    var Module = { 
+      canvas,
+      onRuntimeInitialized: function() {
+        console.log('BLOOP Emulator loaded successfully!');
+      }
+    };
+
+    // Expose functions for C++ EM_ASM bridges
+    window.drawPixel     = drawPixel;
+    window.clearDisplay  = clearDisplay;
+    window.updateDisplay = updateDisplay;
+    window.isButtonPressed = isButtonPressed;
   </script>
 
-  <!-- Make sure this is included so the wasm runs -->
   <script src="bloop.js"></script>
 </body>
 </html>
