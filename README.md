@@ -12,7 +12,7 @@ I’m not an expert in electronics or programming — most of this was built wit
 
 ## 🎮Web Version
 
-**🌐 [Play BLOOP in your browser!](https://akhilparimi97.github.io/BLOOP)**
+**🌐 [Play BLOOP in your browser!](https://akhilparimi97.github.io/BLOOP/web/index.html)**
 
 *The web version is automatically built and deployed from the latest code.*
 
