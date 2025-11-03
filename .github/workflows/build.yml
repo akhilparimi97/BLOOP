@@ -1,0 +1,83 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [ main, master]
+  pull_request:
+    branches: [ main, master]
+
+# IMPORTANT: Grant write permissions to GitHub Actions
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    # Use GitHub Pages environment for security
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Setup Emscripten with unique cache key
+      uses: mymindstorm/setup-emsdk@v14
+      with:
+        version: 3.1.50
+        actions-cache-folder: 'emsdk-cache-${{ github.run_id }}'
+        no-cache: false
+        update: true
+    
+    - name: Verify Emscripten installation
+      run: |
+        emcc --version
+        which emcc
+    
+    - name: Build WebAssembly
+      run: |
+        cd web
+        make clean
+        make
+        ls -la bloop.*
+        file bloop.wasm || echo "WASM file check failed"
+    
+    - name: Prepare deployment files
+      run: |
+        mkdir -p dist
+        cp web/index.html dist/
+        cp web/bloop.js dist/ 2>/dev/null || echo "Warning: bloop.js not found"
+        cp web/bloop.wasm dist/ 2>/dev/null || echo "Warning: bloop.wasm not found"
+        echo "# BLOOP Web Emulator" > dist/README.md
+        echo "Deployed at: $(date)" >> dist/README.md
+        echo "Commit: ${{ github.sha }}" >> dist/README.md
+        ls -la dist/
+    
+    - name: Setup Pages
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      uses: actions/configure-pages@v4
+    
+    - name: Upload Pages artifact
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: ./dist
+    
+    - name: Deploy to GitHub Pages
+      if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+      id: deployment
+      uses: actions/deploy-pages@v4
+        
+    - name: Upload build artifacts (for debugging)
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-debug
+        path: |
+          web/bloop.*
+          web/*.log
+        retention-days: 1

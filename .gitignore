@@ -1,0 +1,40 @@
+# Arduino
+*.hex
+*.elf
+*.map
+
+# Web build artifacts
+web/bloop.js
+web/bloop.wasm
+web/*.tmp
+
+# Build directories
+build/
+dist/
+
+# General
+.DS_Store
+*.log
+node_modules/
+*.tmp
+*.temp
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Archive files (for backup)
+*.zip
+*.tar.gz
+*.rar
+
+# Emscripten cache
+emsdk-cache/
