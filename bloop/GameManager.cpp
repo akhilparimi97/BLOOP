@@ -224,35 +224,89 @@ static void showMenu() {
 static void showBootAnimationFrame() {
   unsigned long t = Millis() - gBootStart;
   
-  // Multi-phase animation
-  if (t < 800) {
-    // Phase 1: Sliding text
-    int textWidth = 5 * 6 * 2; // "BLOOP" is 5 chars * 6 pixels * scale 2
-    int maxOffset = SCREEN_WIDTH + textWidth;
-    int offset = (int)((t * maxOffset) / 800) - textWidth;
+  ClearDisplay();
+  
+  if (t < 600) {
+    // Phase 1: Fade-in effect with expanding box
+    int progress = (t * 100) / 600;
+    int boxSize = (progress * 40) / 100;
+    int centerX = SCREEN_WIDTH / 2;
+    int centerY = SCREEN_HEIGHT / 2;
     
-    ClearDisplay();
-    if (offset < SCREEN_WIDTH) {
-      DrawText(offset, 25, "BLOOP", 2, true);
+    // Expanding border
+    DrawRect(centerX - boxSize, centerY - boxSize/2, boxSize * 2, boxSize, true);
+    if (progress > 30) {
+      DrawRect(centerX - boxSize + 2, centerY - boxSize/2 + 2, boxSize * 2 - 4, boxSize - 4, true);
     }
+    
     Present();
   } else if (t < 1200) {
-    // Phase 2: Centered with blinking
-    ClearDisplay();
-    bool blink = ((t - 800) / 100) % 2 == 0; // Blink every 100ms
-    if (blink) {
-      int centerX = (SCREEN_WIDTH - (5 * 6 * 2)) / 2;
-      DrawText(centerX, 25, "BLOOP", 2, true);
-    }
-    Present();
-  } else {
-    // Phase 3: Final display with version
-    ClearDisplay();
+    // Phase 2: Title reveal
     int centerX = (SCREEN_WIDTH - (5 * 6 * 2)) / 2;
-    DrawText(centerX, 20, "BLOOP", 2, true);
-    DrawText(centerX + 20, 40, "v1.0", 1, true);
+    int centerY = SCREEN_HEIGHT / 2 - 8;
+    
+    // Decorative frame
+    DrawRect(centerX - 8, centerY - 4, 5 * 6 * 2 + 16, 20, true);
+    DrawRect(centerX - 6, centerY - 2, 5 * 6 * 2 + 12, 16, true);
+    FillRect(centerX - 4, centerY, 5 * 6 * 2 + 8, 12, false);
+    
+    // Title
+    DrawText(centerX, centerY + 2, "BLOOP", 2, true);
+    
     Present();
+  } else if (t < 1800) {
+    // Phase 3: Full display with info
+    int centerX = (SCREEN_WIDTH - (5 * 6 * 2)) / 2;
+    int centerY = SCREEN_HEIGHT / 2 - 12;
+    
+    // Main frame
+    DrawRect(centerX - 8, centerY - 4, 5 * 6 * 2 + 16, 28, true);
+    FillRect(centerX - 6, centerY - 2, 5 * 6 * 2 + 12, 24, false);
+    
+    // Title
+    DrawText(centerX, centerY + 2, "BLOOP", 2, true);
+    
+    // Version and tagline
+    DrawText(centerX + 24, centerY + 16, "v1.0", 1, true);
+    
+    // Animated loading dots
+    int dots = ((t - 1200static void showMenu() {
+  ClearDisplay();
+  
+  // Professional header with border
+  FillRect(0, 0, SCREEN_WIDTH, 14, true);
+  FillRect(2, 2, SCREEN_WIDTH - 4, 10, false);
+  DrawText(42, 4, "ARCADE", 1, false);
+  
+  // Decorative separator
+  DrawLine(10, 16, SCREEN_WIDTH - 10, 16, true);
+  
+  // Menu items with modern styling
+  for (int i = 0; i < gMenuCount; ++i) {
+    int y = 22 + i * 14;
+    
+    // Selected item gets a filled box
+    if (i == gMenuIndex) {
+      FillRect(8, y - 2, SCREEN_WIDTH - 16, 12, true);
+      DrawRect(7, y - 3, SCREEN_WIDTH - 14, 14, true);
+      
+      // Extract game name without number prefix
+      const char* name = gMenuItems[i] + 2; // Skip "1.", "2.", etc.
+      int textX = (SCREEN_WIDTH - (std::strlen(name) * 6)) / 2;
+      DrawText(textX, y, name, 1, false);
+    } else {
+      // Unselected items
+      DrawRect(10, y - 2, SCREEN_WIDTH - 20, 12, true);
+      const char* name = gMenuItems[i] + 2;
+      int textX = (SCREEN_WIDTH - (std::strlen(name) * 6)) / 2;
+      DrawText(textX, y, name, 1, true);
+    }
   }
+  
+  // Footer hint
+  DrawText(20, SCREEN_HEIGHT - 8, "A:Select B:Move", 1, true);
+  
+  Present();
 }
 
 // ---------- Sleep (web mock) ----------
