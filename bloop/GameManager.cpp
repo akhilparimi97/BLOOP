@@ -211,38 +211,12 @@ void considerHighScore(GameID id, int score) {
 // ---------- Menu ----------
 static void showMenu() {
   ClearDisplay();
-  
-  // Retro arcade title banner
-  FillRect(0, 0, SCREEN_WIDTH, 16, true);
-  DrawText(38, 4, "* BLOOP *", 1, false);
-  
-  // Classic double border
-  DrawRect(4, 18, SCREEN_WIDTH - 8, SCREEN_HEIGHT - 30, true);
-  DrawRect(6, 20, SCREEN_WIDTH - 12, SCREEN_HEIGHT - 34, true);
-  
-  // Menu items with retro styling
+  drawStatusBarMenu();
   for (int i = 0; i < gMenuCount; ++i) {
-    int y = 28 + i * 13;
-    
-    // Extract game name (remove number prefix)
-    const char* name = gMenuItems[i] + 2;
-    
-    if (i == gMenuIndex) {
-      // Classic selection with arrows and inverse text
-      DrawText(18, y, ">>", 1, true);
-      FillRect(34, y - 1, std::strlen(name) * 6 + 4, 9, true);
-      DrawText(36, y, name, 1, false);
-      DrawText(36 + std::strlen(name) * 6 + 6, y, "<<", 1, true);
-    } else {
-      // Unselected items
-      DrawText(36, y, name, 1, true);
-    }
+    int y = STATUS_BAR_HEIGHT + 5 + i * 10;
+    DrawText(0,  y, (i == gMenuIndex) ? "> " : "  ", 1, true);
+    DrawText(12, y, gMenuItems[i], 1, true);
   }
-  
-  // Retro footer with button hints
-  FillRect(0, SCREEN_HEIGHT - 10, SCREEN_WIDTH, 10, true);
-  DrawText(12, SCREEN_HEIGHT - 8, "[A]=START [B]=MOVE", 1, false);
-  
   Present();
 }
 
@@ -250,60 +224,33 @@ static void showMenu() {
 static void showBootAnimationFrame() {
   unsigned long t = Millis() - gBootStart;
   
-  ClearDisplay();
-  
-  if (t < 500) {
-    // Phase 1: Classic "INSERT COIN" style boot
-    int flash = (t / 100) % 2;
-    if (flash) {
-      DrawRect(20, 20, SCREEN_WIDTH - 40, 24, true);
-      DrawText(40, 28, "BOOTING...", 1, true);
+  // Multi-phase animation
+  if (t < 800) {
+    // Phase 1: Sliding text
+    int textWidth = 5 * 6 * 2; // "BLOOP" is 5 chars * 6 pixels * scale 2
+    int maxOffset = SCREEN_WIDTH + textWidth;
+    int offset = (int)((t * maxOffset) / 800) - textWidth;
+    
+    ClearDisplay();
+    if (offset < SCREEN_WIDTH) {
+      DrawText(offset, 25, "BLOOP", 2, true);
     }
     Present();
-  } else if (t < 1100) {
-    // Phase 2: Big retro title with border
-    DrawRect(10, 12, SCREEN_WIDTH - 20, 40, true);
-    DrawRect(12, 14, SCREEN_WIDTH - 24, 36, true);
-    
-    int centerX = (SCREEN_WIDTH - (5 * 6 * 2)) / 2;
-    DrawText(centerX, 22, "BLOOP", 2, true);
-    
-    // Retro scanline effect
-    for (int y = 16; y < 48; y += 4) {
-      DrawLine(14, y, SCREEN_WIDTH - 14, y, true);
-    }
-    
-    Present();
-  } else if (t < 1700) {
-    // Phase 3: Classic arcade attract mode style
-    DrawRect(10, 12, SCREEN_WIDTH - 20, 40, true);
-    DrawRect(12, 14, SCREEN_WIDTH - 24, 36, true);
-    
-    int centerX = (SCREEN_WIDTH - (5 * 6 * 2)) / 2;
-    DrawText(centerX, 20, "BLOOP", 2, true);
-    
-    // Version info
-    DrawText(centerX + 18, 38, "v1.0", 1, true);
-    
-    // Blinking "PRESS START"
-    int blink = ((t - 1100) / 200) % 2;
+  } else if (t < 1200) {
+    // Phase 2: Centered with blinking
+    ClearDisplay();
+    bool blink = ((t - 800) / 100) % 2 == 0; // Blink every 100ms
     if (blink) {
-      DrawText(28, SCREEN_HEIGHT - 12, "PRESS START", 1, true);
+      int centerX = (SCREEN_WIDTH - (5 * 6 * 2)) / 2;
+      DrawText(centerX, 25, "BLOOP", 2, true);
     }
-    
     Present();
   } else {
-    // Phase 4: Final frame with copyright style
-    DrawRect(10, 12, SCREEN_WIDTH - 20, 40, true);
-    DrawRect(12, 14, SCREEN_WIDTH - 24, 36, true);
-    
+    // Phase 3: Final display with version
+    ClearDisplay();
     int centerX = (SCREEN_WIDTH - (5 * 6 * 2)) / 2;
     DrawText(centerX, 20, "BLOOP", 2, true);
-    DrawText(centerX + 18, 38, "v1.0", 1, true);
-    
-    // Copyright line
-    DrawText(20, SCREEN_HEIGHT - 10, "(C)2025 ARCADE", 1, true);
-    
+    DrawText(centerX + 20, 40, "v1.0", 1, true);
     Present();
   }
 }
