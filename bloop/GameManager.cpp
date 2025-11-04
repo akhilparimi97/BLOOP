@@ -211,12 +211,38 @@ void considerHighScore(GameID id, int score) {
 // ---------- Menu ----------
 static void showMenu() {
   ClearDisplay();
-  drawStatusBarMenu();
+  
+  // Retro arcade title banner
+  FillRect(0, 0, SCREEN_WIDTH, 16, true);
+  DrawText(38, 4, "* BLOOP *", 1, false);
+  
+  // Classic double border
+  DrawRect(4, 18, SCREEN_WIDTH - 8, SCREEN_HEIGHT - 30, true);
+  DrawRect(6, 20, SCREEN_WIDTH - 12, SCREEN_HEIGHT - 34, true);
+  
+  // Menu items with retro styling
   for (int i = 0; i < gMenuCount; ++i) {
-    int y = STATUS_BAR_HEIGHT + 5 + i * 10;
-    DrawText(0,  y, (i == gMenuIndex) ? "> " : "  ", 1, true);
-    DrawText(12, y, gMenuItems[i], 1, true);
+    int y = 28 + i * 13;
+    
+    // Extract game name (remove number prefix)
+    const char* name = gMenuItems[i] + 2;
+    
+    if (i == gMenuIndex) {
+      // Classic selection with arrows and inverse text
+      DrawText(18, y, ">>", 1, true);
+      FillRect(34, y - 1, std::strlen(name) * 6 + 4, 9, true);
+      DrawText(36, y, name, 1, false);
+      DrawText(36 + std::strlen(name) * 6 + 6, y, "<<", 1, true);
+    } else {
+      // Unselected items
+      DrawText(36, y, name, 1, true);
+    }
   }
+  
+  // Retro footer with button hints
+  FillRect(0, SCREEN_HEIGHT - 10, SCREEN_WIDTH, 10, true);
+  DrawText(12, SCREEN_HEIGHT - 8, "[A]=START [B]=MOVE", 1, false);
+  
   Present();
 }
 
@@ -226,87 +252,60 @@ static void showBootAnimationFrame() {
   
   ClearDisplay();
   
-  if (t < 600) {
-    // Phase 1: Fade-in effect with expanding box
-    int progress = (t * 100) / 600;
-    int boxSize = (progress * 40) / 100;
-    int centerX = SCREEN_WIDTH / 2;
-    int centerY = SCREEN_HEIGHT / 2;
+  if (t < 500) {
+    // Phase 1: Classic "INSERT COIN" style boot
+    int flash = (t / 100) % 2;
+    if (flash) {
+      DrawRect(20, 20, SCREEN_WIDTH - 40, 24, true);
+      DrawText(40, 28, "BOOTING...", 1, true);
+    }
+    Present();
+  } else if (t < 1100) {
+    // Phase 2: Big retro title with border
+    DrawRect(10, 12, SCREEN_WIDTH - 20, 40, true);
+    DrawRect(12, 14, SCREEN_WIDTH - 24, 36, true);
     
-    // Expanding border
-    DrawRect(centerX - boxSize, centerY - boxSize/2, boxSize * 2, boxSize, true);
-    if (progress > 30) {
-      DrawRect(centerX - boxSize + 2, centerY - boxSize/2 + 2, boxSize * 2 - 4, boxSize - 4, true);
+    int centerX = (SCREEN_WIDTH - (5 * 6 * 2)) / 2;
+    DrawText(centerX, 22, "BLOOP", 2, true);
+    
+    // Retro scanline effect
+    for (int y = 16; y < 48; y += 4) {
+      DrawLine(14, y, SCREEN_WIDTH - 14, y, true);
     }
     
     Present();
-  } else if (t < 1200) {
-    // Phase 2: Title reveal
+  } else if (t < 1700) {
+    // Phase 3: Classic arcade attract mode style
+    DrawRect(10, 12, SCREEN_WIDTH - 20, 40, true);
+    DrawRect(12, 14, SCREEN_WIDTH - 24, 36, true);
+    
     int centerX = (SCREEN_WIDTH - (5 * 6 * 2)) / 2;
-    int centerY = SCREEN_HEIGHT / 2 - 8;
+    DrawText(centerX, 20, "BLOOP", 2, true);
     
-    // Decorative frame
-    DrawRect(centerX - 8, centerY - 4, 5 * 6 * 2 + 16, 20, true);
-    DrawRect(centerX - 6, centerY - 2, 5 * 6 * 2 + 12, 16, true);
-    FillRect(centerX - 4, centerY, 5 * 6 * 2 + 8, 12, false);
+    // Version info
+    DrawText(centerX + 18, 38, "v1.0", 1, true);
     
-    // Title
-    DrawText(centerX, centerY + 2, "BLOOP", 2, true);
+    // Blinking "PRESS START"
+    int blink = ((t - 1100) / 200) % 2;
+    if (blink) {
+      DrawText(28, SCREEN_HEIGHT - 12, "PRESS START", 1, true);
+    }
     
     Present();
-  } else if (t < 1800) {
-    // Phase 3: Full display with info
+  } else {
+    // Phase 4: Final frame with copyright style
+    DrawRect(10, 12, SCREEN_WIDTH - 20, 40, true);
+    DrawRect(12, 14, SCREEN_WIDTH - 24, 36, true);
+    
     int centerX = (SCREEN_WIDTH - (5 * 6 * 2)) / 2;
-    int centerY = SCREEN_HEIGHT / 2 - 12;
+    DrawText(centerX, 20, "BLOOP", 2, true);
+    DrawText(centerX + 18, 38, "v1.0", 1, true);
     
-    // Main frame
-    DrawRect(centerX - 8, centerY - 4, 5 * 6 * 2 + 16, 28, true);
-    FillRect(centerX - 6, centerY - 2, 5 * 6 * 2 + 12, 24, false);
+    // Copyright line
+    DrawText(20, SCREEN_HEIGHT - 10, "(C)2025 ARCADE", 1, true);
     
-    // Title
-    DrawText(centerX, centerY + 2, "BLOOP", 2, true);
-    
-    // Version and tagline
-    DrawText(centerX + 24, centerY + 16, "v1.0", 1, true);
-    
-    // Animated loading dots
-    int dots = ((t - 1200static void showMenu() {
-  ClearDisplay();
-  
-  // Professional header with border
-  FillRect(0, 0, SCREEN_WIDTH, 14, true);
-  FillRect(2, 2, SCREEN_WIDTH - 4, 10, false);
-  DrawText(42, 4, "ARCADE", 1, false);
-  
-  // Decorative separator
-  DrawLine(10, 16, SCREEN_WIDTH - 10, 16, true);
-  
-  // Menu items with modern styling
-  for (int i = 0; i < gMenuCount; ++i) {
-    int y = 22 + i * 14;
-    
-    // Selected item gets a filled box
-    if (i == gMenuIndex) {
-      FillRect(8, y - 2, SCREEN_WIDTH - 16, 12, true);
-      DrawRect(7, y - 3, SCREEN_WIDTH - 14, 14, true);
-      
-      // Extract game name without number prefix
-      const char* name = gMenuItems[i] + 2; // Skip "1.", "2.", etc.
-      int textX = (SCREEN_WIDTH - (std::strlen(name) * 6)) / 2;
-      DrawText(textX, y, name, 1, false);
-    } else {
-      // Unselected items
-      DrawRect(10, y - 2, SCREEN_WIDTH - 20, 12, true);
-      const char* name = gMenuItems[i] + 2;
-      int textX = (SCREEN_WIDTH - (std::strlen(name) * 6)) / 2;
-      DrawText(textX, y, name, 1, true);
-    }
+    Present();
   }
-  
-  // Footer hint
-  DrawText(20, SCREEN_HEIGHT - 8, "A:Select B:Move", 1, true);
-  
-  Present();
 }
 
 // ---------- Sleep (web mock) ----------
